@@ -1,0 +1,88 @@
+name: tofu-apply
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+      - ".github/workflows/tofu-apply.yml"
+
+concurrency:
+  group: tofu-main
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: apply
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install tofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.13.2"
+
+      - name: install netbird
+        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+
+      - name: join netbird mesh
+        run: |
+          sudo netbird up --setup-key "$NETBIRD_SETUP_KEY" --daemon-addr unix:///var/run/netbird.sock
+          for i in $(seq 1 15); do
+            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
+            [ "$STATUS" -gt 0 ] && break
+            sleep 2
+          done
+          sudo netbird status
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: tofu init
+        run: tofu init -input=false
+        env:
+          TF_VAR_node1_endpoint: ${{ secrets.TF_VAR_NODE1_ENDPOINT }}
+          TF_VAR_node1_username: ${{ secrets.TF_VAR_NODE1_USERNAME }}
+          TF_VAR_node1_password: ${{ secrets.TF_VAR_NODE1_PASSWORD }}
+          TF_VAR_node3_endpoint: ${{ secrets.TF_VAR_NODE3_ENDPOINT }}
+          TF_VAR_node3_username: ${{ secrets.TF_VAR_NODE3_USERNAME }}
+          TF_VAR_node3_password: ${{ secrets.TF_VAR_NODE3_PASSWORD }}
+          TF_VAR_node4_endpoint: ${{ secrets.TF_VAR_NODE4_ENDPOINT }}
+          TF_VAR_node4_username: ${{ secrets.TF_VAR_NODE4_USERNAME }}
+          TF_VAR_node4_password: ${{ secrets.TF_VAR_NODE4_PASSWORD }}
+          TF_VAR_talos_netbird_setup_key: ${{ secrets.TF_VAR_TALOS_NETBIRD_SETUP_KEY }}
+
+      - name: tofu plan
+        run: tofu plan -input=false -no-color -out=tfplan
+        env:
+          TF_VAR_node1_endpoint: ${{ secrets.TF_VAR_NODE1_ENDPOINT }}
+          TF_VAR_node1_username: ${{ secrets.TF_VAR_NODE1_USERNAME }}
+          TF_VAR_node1_password: ${{ secrets.TF_VAR_NODE1_PASSWORD }}
+          TF_VAR_node3_endpoint: ${{ secrets.TF_VAR_NODE3_ENDPOINT }}
+          TF_VAR_node3_username: ${{ secrets.TF_VAR_NODE3_USERNAME }}
+          TF_VAR_node3_password: ${{ secrets.TF_VAR_NODE3_PASSWORD }}
+          TF_VAR_node4_endpoint: ${{ secrets.TF_VAR_NODE4_ENDPOINT }}
+          TF_VAR_node4_username: ${{ secrets.TF_VAR_NODE4_USERNAME }}
+          TF_VAR_node4_password: ${{ secrets.TF_VAR_NODE4_PASSWORD }}
+          TF_VAR_talos_netbird_setup_key: ${{ secrets.TF_VAR_TALOS_NETBIRD_SETUP_KEY }}
+
+      - name: tofu apply
+        run: tofu apply -input=false -auto-approve tfplan
+        env:
+          TF_VAR_node1_endpoint: ${{ secrets.TF_VAR_NODE1_ENDPOINT }}
+          TF_VAR_node1_username: ${{ secrets.TF_VAR_NODE1_USERNAME }}
+          TF_VAR_node1_password: ${{ secrets.TF_VAR_NODE1_PASSWORD }}
+          TF_VAR_node3_endpoint: ${{ secrets.TF_VAR_NODE3_ENDPOINT }}
+          TF_VAR_node3_username: ${{ secrets.TF_VAR_NODE3_USERNAME }}
+          TF_VAR_node3_password: ${{ secrets.TF_VAR_NODE3_PASSWORD }}
+          TF_VAR_node4_endpoint: ${{ secrets.TF_VAR_NODE4_ENDPOINT }}
+          TF_VAR_node4_username: ${{ secrets.TF_VAR_NODE4_USERNAME }}
+          TF_VAR_node4_password: ${{ secrets.TF_VAR_NODE4_PASSWORD }}
+          TF_VAR_talos_netbird_setup_key: ${{ secrets.TF_VAR_TALOS_NETBIRD_SETUP_KEY }}
+
+      - name: leave netbird mesh
+        if: always()
+        run: sudo netbird down
