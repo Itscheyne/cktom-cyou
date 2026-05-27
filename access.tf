@@ -83,6 +83,94 @@ resource "proxmox_virtual_environment_user" "node4_proxmin" {
   }
 }
 
+# ──────────────────────────────────────────────
+# Access Control for AI Agents (read-only GitOps)
+# ──────────────────────────────────────────────
+# Role: AIAgent — least-privilege set for tofu plan context.
+# Excludes VM.Monitor (console access, not needed for plan).
+# Includes SDN.Audit for networking.tf SDN zone reads.
+
+# -- node1 --
+
+resource "proxmox_virtual_environment_role" "node1_ai_agent" {
+  provider = proxmox.node1
+  role_id  = "AIAgent"
+
+  privileges = [
+    "VM.Audit",
+    "Datastore.Audit",
+    "Sys.Audit",
+    "Pool.Audit",
+    "SDN.Audit",
+  ]
+}
+
+resource "proxmox_virtual_environment_user" "node1_agents" {
+  provider = proxmox.node1
+  user_id  = "agents@pve"
+  comment  = "Read-only user for AI agent GitOps tofu plan context"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = proxmox_virtual_environment_role.node1_ai_agent.role_id
+  }
+}
+
+# -- node3 --
+
+resource "proxmox_virtual_environment_role" "node3_ai_agent" {
+  provider = proxmox.node3
+  role_id  = "AIAgent"
+
+  privileges = [
+    "VM.Audit",
+    "Datastore.Audit",
+    "Sys.Audit",
+    "Pool.Audit",
+    "SDN.Audit",
+  ]
+}
+
+resource "proxmox_virtual_environment_user" "node3_agents" {
+  provider = proxmox.node3
+  user_id  = "agents@pve"
+  comment  = "Read-only user for AI agent GitOps tofu plan context"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = proxmox_virtual_environment_role.node3_ai_agent.role_id
+  }
+}
+
+# -- node4 --
+
+resource "proxmox_virtual_environment_role" "node4_ai_agent" {
+  provider = proxmox.node4
+  role_id  = "AIAgent"
+
+  privileges = [
+    "VM.Audit",
+    "Datastore.Audit",
+    "Sys.Audit",
+    "Pool.Audit",
+    "SDN.Audit",
+  ]
+}
+
+resource "proxmox_virtual_environment_user" "node4_agents" {
+  provider = proxmox.node4
+  user_id  = "agents@pve"
+  comment  = "Read-only user for AI agent GitOps tofu plan context"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
+  }
+}
+
 # ── Import existing users ────────────────────
 
 import {

@@ -1,0 +1,67 @@
+name: tofu-apply
+
+on:
+  push:
+    branches: [main]
+
+# Serialize all applies — never run two applies concurrently against the same state.
+concurrency:
+  group: tofu-apply
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: tofu apply
+    runs-on: ubuntu-latest
+    # Environment gate: approval layer before prod apply.
+    # Remove 'environment:' line below to auto-apply on merge without gate.
+    environment: apply-gate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: Write tfvars
+        env:
+          NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
+          NODE1_USERNAME: ${{ vars.NODE1_USERNAME }}
+          NODE1_PASSWORD: ${{ secrets.NODE1_PASSWORD }}
+          NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
+          NODE3_USERNAME: ${{ vars.NODE3_USERNAME }}
+          NODE3_PASSWORD: ${{ secrets.NODE3_PASSWORD }}
+          NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
+          NODE4_USERNAME: ${{ vars.NODE4_USERNAME }}
+          NODE4_PASSWORD: ${{ secrets.NODE4_PASSWORD }}
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure = true
+          node1_endpoint   = "${NODE1_ENDPOINT}"
+          node1_username   = "${NODE1_USERNAME}"
+          node1_password   = "${NODE1_PASSWORD}"
+          node3_endpoint   = "${NODE3_ENDPOINT}"
+          node3_username   = "${NODE3_USERNAME}"
+          node3_password   = "${NODE3_PASSWORD}"
+          node4_endpoint   = "${NODE4_ENDPOINT}"
+          node4_username   = "${NODE4_USERNAME}"
+          node4_password   = "${NODE4_PASSWORD}"
+          EOF
+
+      - name: Connect Netbird VPN
+        uses: netbirdio/netbird-setup-github-actions@v1
+        with:
+          setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: tofu init
+        run: tofu init -input=false
+
+      - name: tofu apply
+        run: tofu apply -input=false -auto-approve
+
+      - name: Cleanup tfvars
+        if: always()
+        run: rm -f ci.auto.tfvars

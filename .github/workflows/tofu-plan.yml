@@ -1,0 +1,129 @@
+name: tofu-plan
+
+on:
+  pull_request:
+    branches: [main]
+
+# Prevent concurrent plan runs on the same PR
+concurrency:
+  group: tofu-plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: tofu validate + plan
+    runs-on: ubuntu-latest
+    # Environment gate: requires manual approval before secrets are injected.
+    # Prevents fork PRs from accessing prod credentials without human sign-off.
+    environment: plan-gate
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          # Explicit ref: pin to PR head sha, not merge commit.
+          # Combined with environment gate this is safe — secrets only
+          # flow after human approval, and workflow changes in the PR
+          # don't take effect until merged.
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: Write tfvars
+        env:
+          NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
+          NODE1_USERNAME: ${{ vars.NODE1_USERNAME }}
+          NODE1_PASSWORD: ${{ secrets.NODE1_PASSWORD }}
+          NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
+          NODE3_USERNAME: ${{ vars.NODE3_USERNAME }}
+          NODE3_PASSWORD: ${{ secrets.NODE3_PASSWORD }}
+          NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
+          NODE4_USERNAME: ${{ vars.NODE4_USERNAME }}
+          NODE4_PASSWORD: ${{ secrets.NODE4_PASSWORD }}
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure = true
+          node1_endpoint   = "${NODE1_ENDPOINT}"
+          node1_username   = "${NODE1_USERNAME}"
+          node1_password   = "${NODE1_PASSWORD}"
+          node3_endpoint   = "${NODE3_ENDPOINT}"
+          node3_username   = "${NODE3_USERNAME}"
+          node3_password   = "${NODE3_PASSWORD}"
+          node4_endpoint   = "${NODE4_ENDPOINT}"
+          node4_username   = "${NODE4_USERNAME}"
+          node4_password   = "${NODE4_PASSWORD}"
+          EOF
+
+      - name: Connect Netbird VPN
+        uses: netbirdio/netbird-setup-github-actions@v1
+        with:
+          setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: tofu init
+        run: tofu init -input=false
+
+      - name: tofu validate
+        run: tofu validate
+
+      - name: tofu plan
+        id: plan
+        run: tofu plan -input=false -no-color -out=tfplan 2>&1 | tee plan_output.txt
+
+      - name: Post plan to PR
+        uses: actions/github-script@v7
+        if: always()
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('plan_output.txt', 'utf8');
+            const truncated = output.length > 60000
+              ? output.slice(0, 60000) + '\n\n... (truncated, see full run logs)'
+              : output;
+            const headSha = process.env.HEAD_SHA;
+            const body = [
+              `### tofu plan — \`${headSha}\``,
+              '',
+              '<details><summary>Plan output</summary>',
+              '',
+              '```hcl',
+              truncated,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            const existing = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.startsWith('### tofu plan')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
+
+      - name: Cleanup tfvars
+        if: always()
+        run: rm -f ci.auto.tfvars tfplan
