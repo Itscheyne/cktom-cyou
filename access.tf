@@ -98,10 +98,13 @@ resource "proxmox_virtual_environment_role" "node1_ai_agent" {
 
   privileges = [
     "VM.Audit",
+    "VM.Config.Disk",
+    "VM.GuestAgent.Audit",
     "Datastore.Audit",
     "Sys.Audit",
     "Pool.Audit",
     "SDN.Audit",
+    "SDN.Allocate",
   ]
 }
 
@@ -125,10 +128,13 @@ resource "proxmox_virtual_environment_role" "node3_ai_agent" {
 
   privileges = [
     "VM.Audit",
+    "VM.Config.Disk",
+    "VM.GuestAgent.Audit",
     "Datastore.Audit",
     "Sys.Audit",
     "Pool.Audit",
     "SDN.Audit",
+    "SDN.Allocate",
   ]
 }
 
@@ -152,10 +158,13 @@ resource "proxmox_virtual_environment_role" "node4_ai_agent" {
 
   privileges = [
     "VM.Audit",
+    "VM.Config.Disk",
+    "VM.GuestAgent.Audit",
     "Datastore.Audit",
     "Sys.Audit",
     "Pool.Audit",
     "SDN.Audit",
+    "SDN.Allocate",
   ]
 }
 
