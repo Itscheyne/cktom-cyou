@@ -45,6 +45,54 @@ resource "proxmox_virtual_environment_user" "node4_proxmin" {
 }
 
 # ──────────────────────────────────────────────
+# GHA CI/CD user (ghprod@pve)
+# plan token → AIAgent role (read-only)
+# apply token → Administrator role (write)
+# ──────────────────────────────────────────────
+
+# -- node1 --
+
+resource "proxmox_virtual_environment_user" "node1_ghprod" {
+  provider = proxmox.node1
+  user_id  = "ghprod@pve"
+  comment  = "GitHub Actions CI/CD user for tofu plan and apply"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = "Administrator"
+  }
+}
+
+# -- node3 --
+
+resource "proxmox_virtual_environment_user" "node3_ghprod" {
+  provider = proxmox.node3
+  user_id  = "ghprod@pve"
+  comment  = "GitHub Actions CI/CD user for tofu plan and apply"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = "Administrator"
+  }
+}
+
+# -- node4 --
+
+resource "proxmox_virtual_environment_user" "node4_ghprod" {
+  provider = proxmox.node4
+  user_id  = "ghprod@pve"
+  comment  = "GitHub Actions CI/CD user for tofu plan and apply"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = "Administrator"
+  }
+}
+
+# ──────────────────────────────────────────────
 # Access Control for AI Agents (read-only GitOps)
 # ──────────────────────────────────────────────
 

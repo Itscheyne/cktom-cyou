@@ -35,11 +35,11 @@ jobs:
       - name: Write tfvars
         env:
           NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
-          NODE1_API_TOKEN: ${{ secrets.NODE1_PLAN_API_TOKEN }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
           NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
-          NODE3_API_TOKEN: ${{ secrets.NODE3_PLAN_API_TOKEN }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
           NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
-          NODE4_API_TOKEN: ${{ secrets.NODE4_PLAN_API_TOKEN }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
         run: |
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure = true
