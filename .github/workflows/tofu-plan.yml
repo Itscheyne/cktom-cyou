@@ -35,26 +35,20 @@ jobs:
       - name: Write tfvars
         env:
           NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
-          NODE1_USERNAME: ${{ vars.NODE1_USERNAME }}
-          NODE1_PASSWORD: ${{ secrets.NODE1_PASSWORD }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_PLAN_API_TOKEN }}
           NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
-          NODE3_USERNAME: ${{ vars.NODE3_USERNAME }}
-          NODE3_PASSWORD: ${{ secrets.NODE3_PASSWORD }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_PLAN_API_TOKEN }}
           NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
-          NODE4_USERNAME: ${{ vars.NODE4_USERNAME }}
-          NODE4_PASSWORD: ${{ secrets.NODE4_PASSWORD }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_PLAN_API_TOKEN }}
         run: |
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure = true
           node1_endpoint   = "${NODE1_ENDPOINT}"
-          node1_username   = "${NODE1_USERNAME}"
-          node1_password   = "${NODE1_PASSWORD}"
+          node1_api_token  = "${NODE1_API_TOKEN}"
           node3_endpoint   = "${NODE3_ENDPOINT}"
-          node3_username   = "${NODE3_USERNAME}"
-          node3_password   = "${NODE3_PASSWORD}"
+          node3_api_token  = "${NODE3_API_TOKEN}"
           node4_endpoint   = "${NODE4_ENDPOINT}"
-          node4_username   = "${NODE4_USERNAME}"
-          node4_password   = "${NODE4_PASSWORD}"
+          node4_api_token  = "${NODE4_API_TOKEN}"
           EOF
 
       - name: Connect Netbird VPN
