@@ -31,3 +31,4 @@ allow_autonomy: false
 
 Use tactical mode for narrow test-only fixes or low-risk docs updates. When a change touches a
 policy-heavy path, keep the decision explicit even if the code delta is small.
+# workflow test 2 20260602T063923Z
