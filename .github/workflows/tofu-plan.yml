@@ -32,7 +32,10 @@ jobs:
 
       - name: join netbird mesh
         run: |
-          sudo netbird up --setup-key "$NETBIRD_SETUP_KEY" --daemon-addr unix:///var/run/netbird.sock
+          sudo netbird up \
+            --setup-key "$NETBIRD_SETUP_KEY" \
+            --management-url "$NETBIRD_MANAGEMENT_URL" \
+            --daemon-addr unix:///var/run/netbird.sock
           for i in $(seq 1 15); do
             STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
             [ "$STATUS" -gt 0 ] && break
@@ -41,6 +44,7 @@ jobs:
           sudo netbird status
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NETBIRD_MANAGEMENT_URL: ${{ secrets.NETBIRD_MANAGEMENT_URL }}
 
       - name: tofu init
         run: tofu init -input=false
