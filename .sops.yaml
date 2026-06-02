@@ -1,0 +1,9 @@
+creation_rules:
+  - path_regex: .*\.tfvars\.sops$
+    age: age1hn93qapc9eqcuayrx27ntdynapha2k0484phava2fne9h4wm3gqq9gd28l
+    input_type: dotenv
+    output_type: dotenv
+  - path_regex: .*\.secrets\.yaml$
+    age: age1hn93qapc9eqcuayrx27ntdynapha2k0484phava2fne9h4wm3gqq9gd28l
+  - path_regex: k8s/.*\.secrets\.yaml$
+    age: age1hn93qapc9eqcuayrx27ntdynapha2k0484phava2fne9h4wm3gqq9gd28l
