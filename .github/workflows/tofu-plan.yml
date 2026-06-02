@@ -57,7 +57,7 @@ jobs:
           setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
 
       - name: tofu init
-        run: tofu init -input=false
+        run: tofu init -input=false -lockfile=readonly
 
       - name: tofu validate
         run: tofu validate
