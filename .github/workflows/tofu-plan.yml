@@ -32,7 +32,17 @@ jobs:
         with:
           tofu_version: "1.9.1"
 
-      - name: Write tfvars
+      - name: join netbird mesh
+        run: |
+          sudo netbird up \
+            --setup-key "$NETBIRD_SETUP_KEY" \
+            --daemon-addr unix:///var/run/netbird.sock
+          for i in $(seq 1 15); do
+            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
+            [ "$STATUS" -gt 0 ] && break
+            sleep 2
+          done
+          sudo netbird status
         env:
           NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}

@@ -26,29 +26,23 @@ jobs:
         with:
           tofu_version: "1.9.1"
 
-      - name: Write tfvars
-        env:
-          NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
-          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_APPLY_TOKEN }}
-          NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
-          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_APPLY_TOKEN }}
-          NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
-          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_APPLY_TOKEN }}
-        run: |
-          cat > ci.auto.tfvars <<EOF
-          proxmox_insecure = true
-          node1_endpoint   = "${NODE1_ENDPOINT}"
-          node1_api_token  = "${NODE1_API_TOKEN}"
-          node3_endpoint   = "${NODE3_ENDPOINT}"
-          node3_api_token  = "${NODE3_API_TOKEN}"
-          node4_endpoint   = "${NODE4_ENDPOINT}"
-          node4_api_token  = "${NODE4_API_TOKEN}"
-          EOF
+      - name: install netbird
+        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
 
-      - name: Connect Netbird VPN
-        uses: Alemiz112/netbird-connect@8aa36452fc8229f9d98b0f22f2ac7bfa90d2552b  # v1
-        with:
-          setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
+      - name: join netbird mesh
+        run: |
+          sudo netbird up \
+            --setup-key "$NETBIRD_SETUP_KEY" \
+            --daemon-addr unix:///var/run/netbird.sock
+          for i in $(seq 1 15); do
+            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
+            [ "$STATUS" -gt 0 ] && break
+            sleep 2
+          done
+          sudo netbird status
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NETBIRD_MANAGEMENT_URL: ${{ secrets.NETBIRD_MANAGEMENT_URL }}
 
       - name: tofu init
         run: tofu init -input=false
