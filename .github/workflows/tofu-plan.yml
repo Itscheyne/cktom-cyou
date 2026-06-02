@@ -52,7 +52,7 @@ jobs:
           EOF
 
       - name: Connect Netbird VPN
-        uses: netbirdio/netbird-setup-github-actions@v1
+        uses: Alemiz112/netbird-connect@8aa36452fc8229f9d98b0f22f2ac7bfa90d2552b  # v1
         with:
           setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
 
