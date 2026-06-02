@@ -3,99 +3,121 @@ name: tofu-plan
 on:
   pull_request:
     branches: [main]
-    paths:
-      - "**.tf"
-      - "**.tfvars"
-      - ".github/workflows/tofu-plan.yml"
-      - ".github/workflows/tofu-apply.yml"
 
+# Prevent concurrent plan runs on the same PR
 concurrency:
-  group: tofu-${{ github.ref }}
+  group: tofu-plan-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   plan:
-    name: plan
+    name: tofu validate + plan
     runs-on: ubuntu-latest
-    environment: prod
+    # Environment gate: requires manual approval before secrets are injected.
+    # Prevents fork PRs from accessing prod credentials without human sign-off.
+    environment: plan-gate
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          # Explicit ref: pin to PR head sha, not merge commit.
+          # Combined with environment gate this is safe — secrets only
+          # flow after human approval, and workflow changes in the PR
+          # don't take effect until merged.
+          ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: install tofu
+      - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
-          tofu_version: "1.13.2"
+          tofu_version: "1.9.1"
 
-      - name: install netbird
-        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-
-      - name: join netbird mesh
-        run: |
-          sudo netbird up --setup-key "$NETBIRD_SETUP_KEY" --daemon-addr unix:///var/run/netbird.sock
-          for i in $(seq 1 15); do
-            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            [ "$STATUS" -gt 0 ] && break
-            sleep 2
-          done
-          sudo netbird status
+      - name: Write tfvars
         env:
-          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
+          NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure = true
+          node1_endpoint   = "${NODE1_ENDPOINT}"
+          node1_api_token  = "${NODE1_API_TOKEN}"
+          node3_endpoint   = "${NODE3_ENDPOINT}"
+          node3_api_token  = "${NODE3_API_TOKEN}"
+          node4_endpoint   = "${NODE4_ENDPOINT}"
+          node4_api_token  = "${NODE4_API_TOKEN}"
+          EOF
+
+      - name: Connect Netbird VPN
+        uses: Alemiz112/netbird-connect@8aa36452fc8229f9d98b0f22f2ac7bfa90d2552b  # v1
+        with:
+          setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
 
       - name: tofu init
-        run: tofu init -input=false
-        env:
-          TF_VAR_node1_endpoint: ${{ secrets.TF_VAR_NODE1_ENDPOINT }}
-          TF_VAR_node1_username: ${{ secrets.TF_VAR_NODE1_USERNAME }}
-          TF_VAR_node1_password: ${{ secrets.TF_VAR_NODE1_PASSWORD }}
-          TF_VAR_node3_endpoint: ${{ secrets.TF_VAR_NODE3_ENDPOINT }}
-          TF_VAR_node3_username: ${{ secrets.TF_VAR_NODE3_USERNAME }}
-          TF_VAR_node3_password: ${{ secrets.TF_VAR_NODE3_PASSWORD }}
-          TF_VAR_node4_endpoint: ${{ secrets.TF_VAR_NODE4_ENDPOINT }}
-          TF_VAR_node4_username: ${{ secrets.TF_VAR_NODE4_USERNAME }}
-          TF_VAR_node4_password: ${{ secrets.TF_VAR_NODE4_PASSWORD }}
-          TF_VAR_talos_netbird_setup_key: ${{ secrets.TF_VAR_TALOS_NETBIRD_SETUP_KEY }}
+        run: tofu init -input=false -lockfile=readonly
+
+      - name: tofu validate
+        run: tofu validate
 
       - name: tofu plan
         id: plan
-        run: tofu plan -input=false -no-color -out=tfplan 2>&1 | tee plan.txt
-        env:
-          TF_VAR_node1_endpoint: ${{ secrets.TF_VAR_NODE1_ENDPOINT }}
-          TF_VAR_node1_username: ${{ secrets.TF_VAR_NODE1_USERNAME }}
-          TF_VAR_node1_password: ${{ secrets.TF_VAR_NODE1_PASSWORD }}
-          TF_VAR_node3_endpoint: ${{ secrets.TF_VAR_NODE3_ENDPOINT }}
-          TF_VAR_node3_username: ${{ secrets.TF_VAR_NODE3_USERNAME }}
-          TF_VAR_node3_password: ${{ secrets.TF_VAR_NODE3_PASSWORD }}
-          TF_VAR_node4_endpoint: ${{ secrets.TF_VAR_NODE4_ENDPOINT }}
-          TF_VAR_node4_username: ${{ secrets.TF_VAR_NODE4_USERNAME }}
-          TF_VAR_node4_password: ${{ secrets.TF_VAR_NODE4_PASSWORD }}
-          TF_VAR_talos_netbird_setup_key: ${{ secrets.TF_VAR_TALOS_NETBIRD_SETUP_KEY }}
+        run: tofu plan -input=false -no-color -out=tfplan 2>&1 | tee plan_output.txt
 
-      - name: post plan to PR
-        if: always()
+      - name: Post plan to PR
         uses: actions/github-script@v7
+        if: always()
         env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-          RUN_ID: ${{ github.run_id }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         with:
           script: |
             const fs = require('fs');
-            const plan = fs.readFileSync('plan.txt', 'utf8');
-            const MAX = 65000;
-            const truncated = plan.length > MAX
-              ? plan.slice(0, MAX) + '\n\n[truncated — see full log in Actions]'
-              : plan;
-            const status = process.env.PLAN_OUTCOME === 'success' ? '✅' : '❌';
-            const runUrl = process.env.RUN_URL;
-            const runId = process.env.RUN_ID;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
+            const output = fs.readFileSync('plan_output.txt', 'utf8');
+            const truncated = output.length > 60000
+              ? output.slice(0, 60000) + '\n\n... (truncated, see full run logs)'
+              : output;
+            const headSha = process.env.HEAD_SHA;
+            const body = [
+              `### tofu plan — \`${headSha}\``,
+              '',
+              '<details><summary>Plan output</summary>',
+              '',
+              '```hcl',
+              truncated,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## ${status} tofu plan\n\n<details><summary>Show plan</summary>\n\n\`\`\`\n${truncated}\n\`\`\`\n</details>\n\n*Run: [#${runId}](${runUrl})*`
+              issue_number: prNumber,
             });
+            const existing = comments.find(c =>
+              c.user.login === 'github-actions[bot]' &&
+              c.body.startsWith('### tofu plan')
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body,
+              });
+            }
 
-      - name: leave netbird mesh
+      - name: Cleanup tfvars
         if: always()
-        run: sudo netbird down
+        run: rm -f ci.auto.tfvars tfplan
