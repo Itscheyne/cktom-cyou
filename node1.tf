@@ -422,15 +422,110 @@ resource "proxmox_virtual_environment_vm" "node1_template_fedora_iot" {
   }
 }
 
-/*
 resource "proxmox_virtual_environment_vm" "node1_flustercuck0" {
-...
+  provider  = proxmox.node1
+  name      = "flustercuck0"
+  node_name = "node1"
+  vm_id     = 10000
+  started   = false
+  tags      = ["talos", "controlplane"]
+
+  cpu {
+    cores   = 4
+    sockets = 1
+    type    = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  efi_disk {
+    datastore_id = "datapool"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "scsi0"
+    datastore_id = "imagepool-zvols"
+    size         = 16
+    iothread     = true
+    discard      = "on"
+    file_format  = "raw"
+  }
+
+  disk {
+    interface    = "scsi1"
+    datastore_id = "imagepool-zvols"
+    size         = 64
+    iothread     = true
+    discard      = "on"
+    file_format  = "raw"
+  }
+
+  network_device {
+    bridge      = "vmbr0"
+    mac_address = "BC:24:11:A7:53:54"
+    model       = "virtio"
+    firewall    = true
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "proxmox_virtual_environment_vm" "node1_flustercuck1" {
-...
+  provider  = proxmox.node1
+  name      = "flustercuck1"
+  node_name = "node1"
+  vm_id     = 10001
+  started   = false
+  tags      = ["talos"]
+
+  cpu {
+    cores   = 4
+    sockets = 1
+    type    = "host"
+  }
+
+  memory {
+    dedicated = 4092
+  }
+
+  efi_disk {
+    datastore_id = "rpool"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "scsi0"
+    datastore_id = "imagepool-zvols"
+    size         = 64
+    iothread     = true
+    discard      = "on"
+    file_format  = "raw"
+  }
+
+  network_device {
+    bridge      = "vmbr0"
+    mac_address = "BC:24:11:7D:CB:29"
+    model       = "virtio"
+    firewall    = true
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
-*/
 
 # ── LXC Containers ───────────────────────────
 
