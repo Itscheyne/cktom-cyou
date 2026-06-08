@@ -81,10 +81,3 @@ variable "prod3_host" {
   type        = string
   default     = "prod3.home.sf.cktom.cyou"
 }
-
-variable "node4_api_token" {
-  description = "Proxmox VE API token for node4 (e.g. agents@pve!dev=<secret>). Takes precedence over password when set."
-  type        = string
-  sensitive   = true
-  default     = null
-}
