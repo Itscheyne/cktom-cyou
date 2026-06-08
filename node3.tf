@@ -738,6 +738,119 @@ resource "proxmox_virtual_environment_vm" "node3_fipa" {
   }
 }
 
+resource "proxmox_virtual_environment_vm" "node3_prod3_1" {
+  provider  = proxmox.node3
+  name      = "prod3-1"
+  node_name = "node3"
+  vm_id     = 801
+  started   = false
+
+  bios    = "ovmf"
+  machine = "q35"
+
+  cpu {
+    cores   = 8
+    sockets = 1
+    type    = "x86-64-v3"
+  }
+
+  memory {
+    dedicated = 10240
+  }
+
+  efi_disk {
+    datastore_id = "rpool"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "scsi1"
+    datastore_id = "rpool-zvols"
+    size         = 128
+    file_format  = "raw"
+  }
+
+  # net0: node3 SDN bridge
+  network_device {
+    bridge      = "node3"
+    mac_address = "D0:99:13:C9:98:FF"
+    model       = "virtio"
+  }
+
+  # net1: vmbr2 VLAN 3
+  network_device {
+    bridge      = "vmbr2"
+    mac_address = "D0:99:13:36:CE:1B"
+    model       = "virtio"
+    mtu         = 1
+    vlan_id     = 3
+  }
+
+  # net2: vmbr2 VLAN 4
+  network_device {
+    bridge      = "vmbr2"
+    mac_address = "D0:99:13:DD:79:E7"
+    model       = "virtio"
+    mtu         = 1
+    vlan_id     = 4
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
+
+resource "proxmox_virtual_environment_vm" "node3_dev3" {
+  provider  = proxmox.node3
+  name      = "dev3"
+  node_name = "node3"
+  vm_id     = 901
+  started   = false
+
+  cpu {
+    cores   = 6
+    sockets = 1
+    type    = "x86-64-v2-AES"
+  }
+
+  memory {
+    dedicated = 6144
+  }
+
+  efi_disk {
+    datastore_id = "rpool"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "virtio0"
+    datastore_id = "rpool-zvols"
+    size         = 128
+    iothread     = true
+    file_format  = "raw"
+  }
+
+  network_device {
+    bridge      = "vmbr2"
+    mac_address = "D0:99:13:D1:97:7B"
+    model       = "virtio"
+    firewall    = true
+    vlan_id     = 3
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
+
 resource "proxmox_virtual_environment_vm" "node3_prod3_0" {
   provider  = proxmox.node3
   name      = "prod3-0"

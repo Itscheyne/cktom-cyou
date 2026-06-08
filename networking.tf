@@ -99,87 +99,7 @@ resource "proxmox_network_linux_bridge" "node4_vmbr0" {
   }
 }
 
-# ── SDN Infrastructure (Modern Names) ───────
-#
-# These resources manage the Proxmox SDN stack.
-# IPAM is handled via the "pve" plugin (reactive).
-
-resource "proxmox_sdn_zone_simple" "internal" {
-  provider = proxmox.node1
-  id       = "internal"
-  ipam     = "pve"
-  dhcp     = "dnsmasq"
-}
-
-resource "proxmox_sdn_vnet" "node1" {
-  provider = proxmox.node1
-  id       = "node1"
-  zone     = proxmox_sdn_zone_simple.internal.id
-}
-
-resource "proxmox_sdn_vnet" "node3" {
-  provider = proxmox.node1
-  id       = "node3"
-  zone     = proxmox_sdn_zone_simple.internal.id
-}
-
-resource "proxmox_sdn_vnet" "node4" {
-  provider = proxmox.node1
-  id       = "node4"
-  zone     = proxmox_sdn_zone_simple.internal.id
-}
-
-# Subnet management is restricted by API limits (501 error on direct GET).
-# Use a data source to reference the existing subnet for IPAM context.
-data "proxmox_sdn_subnet" "node1_subnet" {
-  provider = proxmox.node1
-  vnet     = proxmox_sdn_vnet.node1.id
-  cidr     = "192.168.111.0/24"
-}
-
-data "proxmox_sdn_subnet" "node3_subnet" {
-  provider = proxmox.node1
-  vnet     = proxmox_sdn_vnet.node3.id
-  cidr     = "10.13.0.0/24"
-}
-
-data "proxmox_sdn_subnet" "node4_subnet" {
-  provider = proxmox.node1
-  vnet     = proxmox_sdn_vnet.node4.id
-  cidr     = "10.14.0.0/24"
-}
-
-resource "proxmox_sdn_applier" "apply" {
-  provider   = proxmox.node1
-  depends_on = [
-    data.proxmox_sdn_subnet.node1_subnet,
-    data.proxmox_sdn_subnet.node3_subnet,
-    data.proxmox_sdn_subnet.node4_subnet
-  ]
-}
-
-# ── SDN Usage & IPAM Primitives ─────────────
-#
-# 1. Assign IP via VM initialization:
-#    initialization {
-#      ip_config {
-#        ipv4 {
-#          address = "X.X.X.Y/24"
-#          gateway = "X.X.X.1"
-#        }
-#      }
-#    }
-#
-# 2. IPAM Registration:
-#    Proxmox "pve" IPAM is reactive. Setting an IP in the VM config
-#    automatically registers it in the SDN IPAM database.
-#
-# 3. Node Subnets:
-#    - node1: 192.168.111.0/24 (Gateway: .1, DHCP: .50-.200)
-#    - node3: 10.13.0.0/24     (Gateway: .1)
-#    - node4: 10.14.0.0/24     (Gateway: .1)
-
-# ── SDN Zones Documentation ──────────────────
+# ── SDN Zones ────────────────────────────────
 #
 # "internal" zone — Simple SDN zone providing per-node NAT'd subnets
 # Each node gets its own bridge (named after the node) with:
@@ -188,6 +108,10 @@ resource "proxmox_sdn_applier" "apply" {
 #   - dnsmasq DHCP (static leases only)
 #
 # "localnetwork" zone — default local zone (status: ok on both nodes)
+
+# Note: The bpg/proxmox provider has limited SDN support.
+# These resources document the configuration; you may need to
+# manage SDN zones via the Proxmox API or datacenter.cfg directly.
 
 # ── SDN Network Documentation ───────────────
 #

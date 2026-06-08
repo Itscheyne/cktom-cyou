@@ -82,50 +82,9 @@ variable "prod3_host" {
   default     = "prod3.home.sf.cktom.cyou"
 }
 
-variable "talos_cluster_name" {
-  description = "Talos cluster name (used in kubeconfig and cluster certs)"
-  type        = string
-  default     = "cktom"
-}
-
-variable "talos_version" {
-  description = "Talos version to deploy (e.g. v1.13.2)"
-  type        = string
-  default     = "v1.13.2"
-}
-
-variable "talos_cp_netbird_ip" {
-  description = "Netbird VPN IP of the control-plane node — set after first boot, used as cluster_endpoint"
-  type        = string
-  default     = ""
-}
-
-variable "talos_netbird_setup_key" {
-  description = "Netbird peer setup key for the Talos control-plane node"
+variable "node4_api_token" {
+  description = "Proxmox VE API token for node4 (e.g. agents@pve!dev=<secret>). Takes precedence over password when set."
   type        = string
   sensitive   = true
-}
-
-variable "talos_netbird_management_url" {
-  description = "Netbird management URL (leave empty for cloud)"
-  type        = string
-  default     = ""
-}
-
-variable "talos_worker_node1_ip" {
-  description = "Initial DHCP IP or Netbird IP of the worker node on node1"
-  type        = string
-  default     = ""
-}
-
-variable "talos_worker_node3_ip" {
-  description = "Initial DHCP IP or Netbird IP of the worker node on node3"
-  type        = string
-  default     = ""
-}
-
-variable "talos_worker_node4_ip" {
-  description = "Initial DHCP IP or Netbird IP of the worker node on node4"
-  type        = string
-  default     = ""
+  default     = null
 }
