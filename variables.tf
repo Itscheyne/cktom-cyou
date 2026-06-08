@@ -12,6 +12,7 @@ variable "node1_endpoint" {
 variable "node1_username" {
   description = "Proxmox VE API username for node1 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node1_password" {
@@ -36,6 +37,7 @@ variable "node3_endpoint" {
 variable "node3_username" {
   description = "Proxmox VE API username for node3 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node3_password" {
@@ -60,6 +62,7 @@ variable "node4_endpoint" {
 variable "node4_username" {
   description = "Proxmox VE API username for node4 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node4_password" {
