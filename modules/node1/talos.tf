@@ -18,7 +18,7 @@ resource "talos_image_factory_schematic" "this" {
 # --- Download Talos ISO to node1 ---
 
 resource "proxmox_download_file" "talos_iso_node1" {
-  provider     = proxmox.node1
+  provider     = proxmox
   node_name    = "node1"
   content_type = "iso"
   datastore_id = "local"
@@ -120,7 +120,7 @@ data "talos_machine_configuration" "cp" {
 # --- Control-plane VM on node1 ---
 
 resource "proxmox_virtual_environment_vm" "talos_cp" {
-  provider  = proxmox.node1
+  provider  = proxmox
   name      = "talos-cp1"
   node_name = "node1"
   vm_id     = 8000
