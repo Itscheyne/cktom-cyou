@@ -16,88 +16,9 @@
 # DHCP: dnsmasq, static leases only (dhcp-ignore=tag:!known)
 # ──────────────────────────────────────────────
 
-# ── node3 Network Bridges ───────────────────
-#
-# Physical NICs:
-#   enp11s0 — RTL8111H 1GbE         → vmbr0 (main bridge)
-#   enp8s0  — Intel 82599ES 10G SFP+ → vmbr1 (sniffing/mirror, MTU 9000)
-#   enp7s0  — I225-V 2.5GbE         → vmbr2 (VLAN-aware, VIDs 2-4)
-#
-# vmbr0: VLAN-aware, STP on, VIDs 2-4093
-#   vmbr0.3 — DHCP (mgmt)
-#   vmbr0.4 — DHCP (secondary)
-#
-# vmbr1: Dedicated mirror/sniff bridge (MTU 9000, offloads disabled)
-#
-# vmbr2: VLAN-aware on 2.5GbE, STP on, VIDs 2-4
-
-resource "proxmox_network_linux_bridge" "node3_vmbr0" {
-  provider  = proxmox.node3
-  node_name = "node3"
-  name      = "vmbr0"
-
-  ports      = ["enp11s0"]
-  vlan_aware = true
-  autostart  = true
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_network_linux_bridge" "node3_vmbr1" {
-  provider  = proxmox.node3
-  node_name = "node3"
-  name      = "vmbr1"
-
-  ports      = ["enp8s0"]
-  vlan_aware = false
-  mtu        = 9000
-  autostart  = true
-
-  # Sniffing/mirror bridge — STP off, aging 0, offloads disabled via post-up
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_network_linux_bridge" "node3_vmbr2" {
-  provider  = proxmox.node3
-  node_name = "node3"
-  name      = "vmbr2"
-
-  ports      = ["enp7s0"]
-  vlan_aware = true
-  autostart  = true
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-# ── node4 Network Bridges ───────────────────
-#
-# Physical NICs:
-#   eno1 — onboard NIC → vmbr0 (main bridge)
-#
-# vmbr0: VLAN-aware, STP on, VIDs 1-4094
-#   vmbr0.3 — DHCP (mgmt)
-#   vmbr0.4 — DHCP (secondary)
-
-resource "proxmox_network_linux_bridge" "node4_vmbr0" {
-  provider  = proxmox.node4
-  node_name = "node4"
-  name      = "vmbr0"
-
-  ports      = ["eno1"]
-  vlan_aware = true
-  autostart  = true
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
+# Network bridges moved into per-node modules:
+#   node3 vmbr0/vmbr1/vmbr2 → modules/node3/networking.tf
+#   node4 vmbr0             → modules/node4/networking.tf
 
 # ── SDN Zones ────────────────────────────────
 #
