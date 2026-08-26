@@ -89,7 +89,7 @@ jobs:
           NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
             echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
-            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node1"
+            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
           fi
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
