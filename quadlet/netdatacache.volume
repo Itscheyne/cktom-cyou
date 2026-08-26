@@ -1,5 +1,0 @@
-[Unit]
-Description=Netdata Container Quadlet volume netdatacache
-
-[Volume]
-VolumeName=netdatacache
