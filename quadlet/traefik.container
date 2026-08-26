@@ -1,0 +1,123 @@
+#/home/prodmin/.config/containers/systemd/traefik.container
+#Traefik service managed by Podman and Systemd Quadlet
+#
+[Unit]
+Description=Traefik Reverse Proxy Container
+
+# This service should start after the network is fully online
+After=network-online.target
+Wants=network-online.target
+
+# If you are using podman secrets, they might not be available until later.
+# This dependency can sometimes help, but is not always required.
+After=podman.service
+
+[Install]
+WantedBy=multi-user.target default.target
+
+[Service]
+Restart=always
+
+[Container]
+# The name of the container that will be created
+ContainerName=traefik
+#Network=host
+# Use a specific version tag instead of :latest for predictable deployments
+Image=docker.io/library/traefik:latest
+Network=internal.network
+# Pull newer images
+Pull=newer
+#Publish the necessary ports from the container to the host
+#Web entrypoint
+PublishPort=80:80
+#Websecure entrypoint
+PublishPort=443:443
+#TCP entrypoint
+PublishPort=4433:4433
+#
+PublishPort=8082:8082
+#Metrics
+PublishPort=9100:9100
+
+
+# We'll leave the insecure dashboard port out as per best practice
+#PublishPort=8080:8080
+
+# This line tells Podman to use the secret named 'CF_DNS_API_TOKEN'
+# IMPORTANT: This secret must be created by the root user for a system service
+Secret=CF_DNS_API_TOKEN
+
+#No new priveleges needed so lets lock it down.
+NoNewPrivileges=true
+
+# Define the volume mounts. Note the ':Z' for SELinux systems.
+# Use ':Z' if your host has SELinux enabled (like CentOS, RHEL, Fedora)
+# to ensure the container can write to the data volume.
+Volume=/etc/traefik/traefik.yml:/etc/traefik/traefik.yml:Z,ro
+Volume=/etc/traefik/dynamic:/etc/traefik/dynamic:Z,ro
+Volume=/etc/traefik/data:/etc/traefik/data:Z
+
+# Add SELinux label
+SecurityLabelType=container_runtime_t
+
+# Add your environment variables here.
+# NOTE: We are using the secret file method from before, so these are not needed for auth,
+# but are included here to match your last working command.
+Environment=CF_DNS_API_TOKEN_FILE=/run/secrets/CF_DNS_API_TOKEN
+Environment=CLOUDFLARE_POLLING_INTERVAL=5
+Environment=CLOUDFLARE_PROPAGATION_TIMEOUT=600
+Environment=DOCKER_SOCK=tcp://docker-socket-proxy:2375
+Environment=LEGO_EXPERIMENTAL_CNAME_SUPPORT=true
+
+
+Label=traefik.enable=true
+Label=traefik.http.middlewares.prod3Auth.basicAuth.users=traefikmin:$apr1$srhZYlNC$oXcGO1W/QQlfyfew7OVF61
+Label=traefik.http.middlewares.prod3Auth.basicAuth.removeheader=true
+Label=traefik.http.routers.prod3-cktom-cyou.rule=Host(`prod3.cktom.cyou`)
+Label=traefik.http.routers.prod3-cktom-cyou.tls.certresolver=cloudflareResolver
+Label=traefik.http.routers.prod3-cktom-cyou.tls.domains[0].main=*.prod3.cktom.cyou
+Label=traefik.http.routers.prod3-cktom-cyou.tls.domains[0].sans=prod3.cktom.cyou
+Label=traefik.http.routers.prod3-cktom-cyou.service=api@internal
+Label=traefik.http.routers.prod3-cktom-cyou.middlewares=prod3Auth
+## Transitioning from traefik.yml to using env variables to make it easier to IaC this.
+## Setup logging and metrics
+#Environment=TRAEFIK_LOG_LEVEL=DEBUG
+#Environment=TRAEFIK_ACCESSLOG=true
+#Environment=TRAEFIK_ACCESSLOG_ADDINTERNALS=true
+#Environment=TRAEFIK_API=true
+#Environment=TRAEFIK_API_DASHBOARD=true
+#Environment=TRAEFIK_API_DEBUG=true
+#Environment=TRAEFIK_METRICS_ADDINTERNALS=true
+#Environment=TRAEFIK_METRICS_PROMETHEUS_ADDENTRYPOINTSLABELES=true
+#Environment=TRAEFIK_METRICS_PROMETHEUS_ADDROUTERSLABELS=true
+#Environment=TRAEFIK_METRICS_PROMETHEUS_ADDSERVICESLABELS=true
+## setup entrypoints
+#Environment=TRAEFIK_ENTRYPOINTS_WEB=true
+#Environment=TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=":80"
+#Environment=TRAEFIK_ENTRYPOINTS_WEB_HTTP=true
+#Environment=TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_TO=websecure
+#Environment=TRAEFIK_ENTRYPOINTS_WEB_HTTP_REDIRECTIONS_ENTRYPOINT_SCHEME=https
+#Environment=TRAEFIK_ENTRYPOINTS_WEBSECURE=true
+#Environment=TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=":443"
+## define providers
+## Docker
+#Environment=TRAEFIK_PROVIDERS_DOCKER=true
+#Environment=TRAEFIK_PROVIDERS_DOCKER_ENDPOINT="tcp://127.0.0.1:2375"
+## File
+#Environment=TRAEFIK_PROVIDERS_FILE=true
+#Environment=TRAEFIK_PROVIDERS_FILE_DIRECTORY="/etc/traefik/dynamic/"
+#Environment=TRAEFIK_PROVIDERS_FILE_WATCH=true
+#
+## define cert resolvers
+#
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE=true
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_EMAIL="acme1@cktom.cyou"
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_STORAGE="/etc/traefik/data/acme.json"
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE=true
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROVIDERS=cloudflare
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_RESOLVERS="108.162.192.138"
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROPAGATION=true
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROPAGATION_DISABLECHECKS=true
+#Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROPAGATION_DELAYBEFORECHECKS=90
+
+Pod=services.pod

@@ -53,15 +53,18 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure = true
           node1_endpoint   = "${NODE1_ENDPOINT}"
-          node1_username   = "ci@pve"
-          node1_api_token  = "${NODE1_API_TOKEN}"
           node3_endpoint   = "${NODE3_ENDPOINT}"
-          node3_username   = "ci@pve"
-          node3_api_token  = "${NODE3_API_TOKEN}"
           node4_endpoint   = "${NODE4_ENDPOINT}"
-          node4_username   = "ci@pve"
-          node4_api_token  = "${NODE4_API_TOKEN}"
           EOF
+          if [ -n "${NODE1_API_TOKEN}" ]; then
+            echo "node1_api_token = \"${NODE1_API_TOKEN}\"" >> ci.auto.tfvars
+          fi
+          if [ -n "${NODE3_API_TOKEN}" ]; then
+            echo "node3_api_token = \"${NODE3_API_TOKEN}\"" >> ci.auto.tfvars
+          fi
+          if [ -n "${NODE4_API_TOKEN}" ]; then
+            echo "node4_api_token = \"${NODE4_API_TOKEN}\"" >> ci.auto.tfvars
+          fi
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_APPLY_TOKEN }}

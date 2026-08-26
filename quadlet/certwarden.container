@@ -1,0 +1,55 @@
+#/home/prodmin/.config/containers/systemd/certwarden.container
+#certwarden service managed by Podman and Systemd Quadlet
+#
+[Unit]
+Description=Certwarden Container
+
+# This service should start after the network is fully online
+After=network-online.target
+Wants=network-online.target
+
+# If you are using podman secrets, they might not be available until later.
+# This dependency can sometimes help, but is not always required.
+After=podman.service
+
+[Install]
+WantedBy=multi-user.target default.target
+
+
+[Service]
+Restart=on-abnormal
+
+
+
+[Container]
+ContainerName=certwarden
+
+#Network=host
+# Use a specific version tag instead of :latest for predictable deployments
+Image=ghcr.io/gregtwallace/certwarden:latest
+Network=internal.network
+
+# Pull newer images
+Pull=newer
+PublishPort=4050:4050
+PublishPort=4055:4055
+PublishPort=4060:4060
+PublishPort=4065:4065
+PublishPort=4070:4070
+
+NoNewPrivileges=true
+
+Volume=certwardendata:/app/data
+
+SecurityLabelType=container_runtime_t
+
+#Add labels for traefik
+Label="traefik.enable=true"
+Label="traefik.http.routers.certwarden.entrypoints=entryPoint443"
+Label="traefik.http.routers.certwarden.rule=Host(`certwarden.prod3.cktom.cyou`)"
+Label="traefik.http.routers.certwarden.tls=true"
+Label="traefik.http.routers.certwarden.service=certwarden"
+Label="traefik.http.services.certwarden.loadbalancer.server.scheme=http"
+Label="traefik.http.services.certwarden.loadbalancer.server.port=4050"
+Label="traefik.http.services.certwarden.loadbalancer.server.preservePath=true"
+Pod=services.pod
