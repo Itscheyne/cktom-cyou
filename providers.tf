@@ -6,10 +6,14 @@ terraform {
       source  = "bpg/proxmox"
       version = ">=0.78.0"
     }
+    talos = {
+      source  = "siderolabs/talos"
+      version = ">=0.7.0" # Use recent valid version
+    }
   }
 
   backend "s3" {
-    bucket = "Cktom-cyou-iac"
+    bucket = "cktom-cyou-iac"
     key    = "terraform.tfstate"
     region = "auto"
     # endpoint injected at init time via:
@@ -20,6 +24,7 @@ terraform {
     skip_metadata_api_check     = true
     skip_region_validation      = true
     skip_requesting_account_id  = true
+    skip_s3_checksum            = true
     use_path_style              = true
   }
 }
