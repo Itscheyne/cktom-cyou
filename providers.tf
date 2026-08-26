@@ -1,11 +1,26 @@
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">=1.6.0"
 
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = ">= 0.78.0"
+      version = ">=0.78.0"
     }
+  }
+
+  backend "s3" {
+    bucket = "Cktom-cyou-iac"
+    key    = "terraform.tfstate"
+    region = "auto"
+    # endpoint injected at init time via:
+    #   -backend-config="endpoint=https://<account_id>.r2.cloudflarestorage.com"
+    # credentials injected via env:
+    #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    use_path_style              = true
   }
 }
 
