@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 
-# Serialize all applies — never run two applies concurrently against the same state.
+# Serialize all applies — never run two applies concurrently against same state.
 concurrency:
   group: tofu-apply
   cancel-in-progress: false
@@ -13,8 +13,8 @@ jobs:
   apply:
     name: tofu apply
     runs-on: ubuntu-latest
-    # Environment gate: approval layer before prod apply.
-    # Remove 'environment:' line below to auto-apply on merge without gate.
+    # Environment gate: requires manual approval before secrets are injected.
+    # Remove 'environment:' line to auto-apply on merge without a gate.
     environment: apply-gate
 
     steps:
@@ -26,10 +26,10 @@ jobs:
         with:
           tofu_version: "1.9.1"
 
-      - name: install netbird
+      - name: Install netbird
         run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
 
-      - name: join netbird mesh
+      - name: Join netbird mesh
         run: |
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
@@ -42,7 +42,28 @@ jobs:
           sudo netbird status
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
-          NETBIRD_MANAGEMENT_URL: ${{ secrets.NETBIRD_MANAGEMENT_URL }}
+
+      - name: Write tfvars
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure = true
+          node1_endpoint   = "${NODE1_ENDPOINT}"
+          node1_username   = "ci@pve"
+          node1_api_token  = "${NODE1_API_TOKEN}"
+          node3_endpoint   = "${NODE3_ENDPOINT}"
+          node3_username   = "ci@pve"
+          node3_api_token  = "${NODE3_API_TOKEN}"
+          node4_endpoint   = "${NODE4_ENDPOINT}"
+          node4_username   = "ci@pve"
+          node4_api_token  = "${NODE4_API_TOKEN}"
+          EOF
+        env:
+          NODE1_ENDPOINT:  ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_APPLY_TOKEN }}
+          NODE3_ENDPOINT:  ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_APPLY_TOKEN }}
+          NODE4_ENDPOINT:  ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_APPLY_TOKEN }}
 
       - name: tofu init
         run: tofu init -input=false
