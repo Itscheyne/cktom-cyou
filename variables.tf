@@ -84,3 +84,28 @@ variable "prod3_host" {
   type        = string
   default     = "prod3.home.sf.cktom.cyou"
 }
+
+variable "talos_version" {
+  description = "Talos OS version"
+  type        = string
+  default     = "v1.7.0"
+}
+
+variable "talos_cluster_name" {
+  description = "Talos cluster name"
+  type        = string
+  default     = "talos-cluster"
+}
+
+variable "talos_netbird_setup_key" {
+  description = "Netbird setup key for Talos"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "talos_netbird_management_url" {
+  description = "Netbird management URL for Talos"
+  type        = string
+  default     = ""
+}
