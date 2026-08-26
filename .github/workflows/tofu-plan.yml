@@ -4,26 +4,31 @@ on:
   pull_request:
     branches: [main]
 
-# Prevent concurrent plan runs on same PR
+# Prevent concurrent plan runs on the same PR
 concurrency:
   group: tofu-plan-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   plan:
-    name: tofu validate + plan
+    name: tofu validate plan
     runs-on: ubuntu-latest
     # Environment gate: requires manual approval before secrets are injected.
     # Prevents fork PRs from accessing prod credentials without human sign-off.
     environment: plan-gate
 
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
+
     steps:
-      - name: Checkout PR head
+      - name: Checkout head
         uses: actions/checkout@v4
         with:
-          # Pin to head sha, not merge commit. Combined with environment gate,
-          # secrets only flow after human approval and workflow changes in the
-          # PR don't take effect until merged.
+          # Pin head sha, not merge commit. Combined with environment gate,
+          # secrets only flow after human approval; workflow changes in the PR
+          # don't take effect until merged.
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup OpenTofu
@@ -36,12 +41,12 @@ jobs:
 
       - name: Join netbird mesh
         run: |
-          sudo netbird up \
+          sudo netbird \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
           for i in $(seq 1 15); do
             STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            [ "$STATUS" -gt 0 ] && break
+            if [ "$STATUS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
@@ -63,19 +68,15 @@ jobs:
           node4_api_token  = "${NODE4_API_TOKEN}"
           EOF
         env:
-          NODE1_ENDPOINT:  ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
-          NODE3_ENDPOINT:  ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
-          NODE4_ENDPOINT:  ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
           NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
 
       - name: tofu init
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-        env:
-          CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
-          AWS_ACCESS_KEY_ID:        ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY:    ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
 
       - name: tofu validate
         run: tofu validate

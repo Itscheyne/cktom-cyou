@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
 
-# Serialize all applies — never run two applies concurrently against same state.
+# Serialize all applies so no two applies run concurrently against the same state.
 concurrency:
   group: tofu-apply
   cancel-in-progress: false
@@ -14,8 +14,13 @@ jobs:
     name: tofu apply
     runs-on: ubuntu-latest
     # Environment gate: requires manual approval before secrets are injected.
-    # Remove 'environment:' line to auto-apply on merge without a gate.
+    # Remove 'environment:' line below to auto-apply on merge without gate.
     environment: apply-gate
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
 
     steps:
       - name: Checkout
@@ -31,12 +36,12 @@ jobs:
 
       - name: Join netbird mesh
         run: |
-          sudo netbird up \
+          sudo netbird \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
           for i in $(seq 1 15); do
             STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            [ "$STATUS" -gt 0 ] && break
+            if [ "$STATUS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
@@ -58,22 +63,18 @@ jobs:
           node4_api_token  = "${NODE4_API_TOKEN}"
           EOF
         env:
-          NODE1_ENDPOINT:  ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_APPLY_TOKEN }}
-          NODE3_ENDPOINT:  ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_APPLY_TOKEN }}
-          NODE4_ENDPOINT:  ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
           NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_APPLY_TOKEN }}
 
       - name: tofu init
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-        env:
-          CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
-          AWS_ACCESS_KEY_ID:        ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY:    ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
 
       - name: tofu apply
-        run: tofu apply -input=false -auto-approve
+        run: tofu apply -auto-approve -input=false
 
       - name: Cleanup tfvars
         if: always()
