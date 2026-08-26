@@ -56,15 +56,22 @@ jobs:
           node3_endpoint   = "${NODE3_ENDPOINT}"
           node4_endpoint   = "${NODE4_ENDPOINT}"
           EOF
-          if [ -n "${NODE1_API_TOKEN}" ]; then
-            echo "node1_api_token = \"${NODE1_API_TOKEN}\"" >> ci.auto.tfvars
-          fi
-          if [ -n "${NODE3_API_TOKEN}" ]; then
-            echo "node3_api_token = \"${NODE3_API_TOKEN}\"" >> ci.auto.tfvars
-          fi
-          if [ -n "${NODE4_API_TOKEN}" ]; then
-            echo "node4_api_token = \"${NODE4_API_TOKEN}\"" >> ci.auto.tfvars
-          fi
+          format_token() {
+            local token="$1"
+            local token_type="$2"
+            if [ -n "$token" ]; then
+              if [[ "$token" != *"!"* ]]; then
+                token="ghprod@pve!${token_type}=${token}"
+              fi
+              echo "$token"
+            fi
+          }
+          T1=$(format_token "${NODE1_API_TOKEN}" "apply")
+          if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T3=$(format_token "${NODE3_API_TOKEN}" "apply")
+          if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
+          T4=$(format_token "${NODE4_API_TOKEN}" "apply")
+          if [ -n "$T4" ]; then echo "node4_api_token = \"$T4\"" >> ci.auto.tfvars; fi
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_APPLY_TOKEN }}
