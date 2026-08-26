@@ -12,6 +12,7 @@ variable "node1_endpoint" {
 variable "node1_username" {
   description = "Proxmox VE API username for node1 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node1_password" {
@@ -22,7 +23,7 @@ variable "node1_password" {
 }
 
 variable "node1_api_token" {
-  description = "Proxmox VE API token for node1 (e.g. agents@pve!dev=<secret>). Takes precedence over password when set."
+  description = "Proxmox VE API token for node1 (e.g. ghprod@pve!apply=<secret>). Takes precedence over password when set."
   type        = string
   sensitive   = true
   default     = null
@@ -36,6 +37,7 @@ variable "node3_endpoint" {
 variable "node3_username" {
   description = "Proxmox VE API username for node3 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node3_password" {
@@ -46,7 +48,7 @@ variable "node3_password" {
 }
 
 variable "node3_api_token" {
-  description = "Proxmox VE API token for node3 (e.g. agents@pve!dev=<secret>). Takes precedence over password when set."
+  description = "Proxmox VE API token for node3 (e.g. ghprod@pve!apply=<secret>). Takes precedence over password when set."
   type        = string
   sensitive   = true
   default     = null
@@ -60,6 +62,7 @@ variable "node4_endpoint" {
 variable "node4_username" {
   description = "Proxmox VE API username for node4 (e.g. root@pam)"
   type        = string
+  default     = null
 }
 
 variable "node4_password" {
@@ -70,8 +73,14 @@ variable "node4_password" {
 }
 
 variable "node4_api_token" {
-  description = "Proxmox VE API token for node4 (e.g. agents@pve!dev=<secret>). Takes precedence over password when set."
+  description = "Proxmox VE API token for node4 (e.g. ghprod@pve!apply=<secret>). Takes precedence over password when set."
   type        = string
   sensitive   = true
   default     = null
+}
+
+variable "prod3_host" {
+  description = "SSH hostname for prod3 VM"
+  type        = string
+  default     = "prod3.home.sf.cktom.cyou"
 }
