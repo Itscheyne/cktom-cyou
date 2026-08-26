@@ -92,7 +92,16 @@ jobs:
         run: tofu validate
 
       - name: tofu plan
-        run: tofu plan -input=false -out=tfplan.binary
+        run: |
+          PLAN_FLAGS="-input=false -out=tfplan.binary"
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1"
+          fi
+          tofu plan $PLAN_FLAGS
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
 
       - name: Show plan summary
         run: tofu show -no-color tfplan.binary

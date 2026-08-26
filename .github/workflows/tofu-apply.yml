@@ -84,7 +84,16 @@ jobs:
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
       - name: tofu apply
-        run: tofu apply -auto-approve -input=false
+        run: |
+          APPLY_FLAGS="-auto-approve -input=false"
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
+            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node1"
+          fi
+          tofu apply $APPLY_FLAGS
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
 
       - name: Cleanup tfvars
         if: always()
