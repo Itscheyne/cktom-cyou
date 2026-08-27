@@ -120,12 +120,6 @@ import {
   id       = "qemu/899"
 }
 
-import {
-  provider = proxmox.node4
-  to       = proxmox_virtual_environment_vm.node4_fipa
-  id       = "qemu/150"
-}
-
 # ── node3 VMs ────────────────────────────────
 
 import {

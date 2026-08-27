@@ -75,3 +75,23 @@ variable "node4_api_token" {
   sensitive   = true
   default     = null
 }
+
+variable "talos_version" {
+  type = string
+  default = "v1.13.3"
+}
+
+variable "talos_netbird_setup_key" {
+  type = string
+  sensitive = true
+}
+
+variable "talos_netbird_management_url" {
+  type = string
+  default = "https://api.netbird.io"
+}
+
+variable "talos_cluster_name" {
+  type = string
+  default = "flustercuck"
+}
