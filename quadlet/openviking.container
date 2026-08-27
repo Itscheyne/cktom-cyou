@@ -1,0 +1,22 @@
+[Unit]
+Description=Open Viking Server
+After=network-online.target
+
+[Container]
+Image=docker.io/openviking/openviking:latest
+ContainerName=openviking
+Network=internal.network
+# Map to internal Traefik network
+NetworkAlias=openviking
+
+Volume=/var/opt/openviking/data:/app/.openviking
+
+# Traefik labels for web dashboard
+Label=traefik.enable=true
+Label=traefik.http.routers.openviking.rule=Host(`openviking.sf.cktom.cyou`)
+Label=traefik.http.routers.openviking.entrypoints=websecure
+Label=traefik.http.routers.openviking.tls.certresolver=letsencrypt
+Label=traefik.http.services.openviking.loadbalancer.server.port=1933
+
+[Install]
+WantedBy=default.target

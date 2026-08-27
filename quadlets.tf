@@ -11,6 +11,7 @@ locals {
     "netdata.container"             = "netdata.service"
     "netdatacache.volume"           = "netdatacache-volume.service"
     "netdatalib.volume"             = "netdatalib-volume.service"
+    "openviking.container"          = "openviking.service"
     "semaphore.container"           = "semaphore.service"
     "services.pod"                  = "services-pod.service"
     "stash.container"               = "stash.service"
@@ -48,6 +49,37 @@ resource "null_resource" "prod3_quadlets" {
       "export XDG_RUNTIME_DIR=/run/user/$(id -u)",
       "systemctl --user daemon-reload",
       "systemctl --user restart ${each.value}",
+    ]
+  }
+}
+
+resource "null_resource" "openviking_config" {
+  triggers = {
+    content = filesha256("${path.module}/quadlet/ov.conf")
+  }
+
+  connection {
+    type  = "ssh"
+    host  = var.prod3_host
+    user  = "prodmin"
+    agent = true
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mkdir -p /var/opt/openviking/data",
+      "sudo chown -R $USER:$USER /var/opt/openviking/data"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "${path.module}/quadlet/ov.conf"
+    destination = "/tmp/ov.conf"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo mv /tmp/ov.conf /var/opt/openviking/data/ov.conf"
     ]
   }
 }

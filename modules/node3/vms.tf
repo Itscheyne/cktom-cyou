@@ -962,3 +962,105 @@ resource "proxmox_virtual_environment_container" "node3_dir" {
     ignore_changes = all
   }
 }
+
+# LXC container for Ollama (Host AMD APU via passthrough)
+resource "proxmox_virtual_environment_container" "node3_ollama" {
+  provider     = proxmox
+  node_name    = "node3"
+  vm_id        = 114
+  started      = true
+  tags         = ["ollama", "llm", "apu"]
+  unprivileged = true
+
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
+  }
+
+  cpu {
+    cores = 4
+  }
+
+  memory {
+    dedicated = 8192
+  }
+
+  disk {
+    datastore_id = "rpool-zvols"
+    size         = 30
+  }
+
+  network_interface {
+    name   = "eth0"
+    bridge = "vmbr0"
+  }
+
+  initialization {
+    hostname = "ollama-apu"
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
+  }
+
+  # AMD APU specific passthrough
+  device_passthrough {
+    path = "/dev/dri/renderD128"
+    uid  = 0
+    gid  = 0
+    mode = "0666"
+  }
+  device_passthrough {
+    path = "/dev/kfd"
+    uid  = 0
+    gid  = 0
+    mode = "0666"
+  }
+
+  # Note: Required inside LXC to actually serve:
+  # curl -fsSL https://ollama.com/install.sh | sh
+  # systemctl edit ollama.service -> Environment="OLLAMA_HOST=0.0.0.0"
+  # ollama pull nomic-embed-text
+}
+
+resource "null_resource" "node3_ollama_idmap" {
+  depends_on = [proxmox_virtual_environment_container.node3_ollama]
+
+  triggers = {
+    vm_id = proxmox_virtual_environment_container.node3_ollama.vm_id
+  }
+
+  connection {
+    type  = "ssh"
+    host  = "node3"
+    user  = "root"
+    agent = true
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      # Ensure subgid allows root to map GID 44 (video) and 993 (render)
+      "grep -q '^root:44:1$' /etc/subgid || echo 'root:44:1' >> /etc/subgid",
+      "grep -q '^root:993:1$' /etc/subgid || echo 'root:993:1' >> /etc/subgid",
+
+      # Inject LXC idmap configurations into the container's conf file
+      "sed -i '/^lxc.idmap:/d' /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: u 0 100000 65536' >> /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: g 0 100000 44' >> /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: g 44 44 1' >> /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: g 45 100045 948' >> /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: g 993 993 1' >> /etc/pve/lxc/114.conf",
+      "echo 'lxc.idmap: g 994 100994 64542' >> /etc/pve/lxc/114.conf",
+
+      # Chown the passed through devices to match what we expect
+      "chown 100000:44 /dev/dri/card0 || true",
+      "chown 100000:993 /dev/dri/renderD128 || true",
+      "chown 100000:993 /dev/kfd || true",
+
+      # Restart the LXC so the GID mappings take effect
+      "pct stop 114 || true",
+      "pct start 114"
+    ]
+  }
+}
