@@ -1,0 +1,12 @@
+[Unit]
+Description=Open Viking Server
+After=network-online.target
+
+[Container]
+Image=docker.io/openviking/openviking:latest
+ContainerName=openviking
+PublishPort=1933:1933
+Volume=/var/opt/openviking/data:/app/.openviking
+
+[Install]
+WantedBy=default.target

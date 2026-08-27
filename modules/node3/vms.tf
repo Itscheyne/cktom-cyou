@@ -962,3 +962,58 @@ resource "proxmox_virtual_environment_container" "node3_dir" {
     ignore_changes = all
   }
 }
+
+# LXC container for Ollama (Host AMD APU via passthrough)
+resource "proxmox_virtual_environment_container" "node3_ollama" {
+  provider     = proxmox
+  node_name    = "node3"
+  vm_id        = 114
+  started      = true
+  tags         = ["ollama", "llm", "apu"]
+  unprivileged = false
+
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
+  }
+
+  cpu {
+    cores = 4
+  }
+
+  memory {
+    dedicated = 8192
+  }
+
+  disk {
+    datastore_id = "rpool-zvols"
+    size         = 30
+  }
+
+  network_interface {
+    name   = "eth0"
+    bridge = "vmbr0"
+  }
+
+  initialization {
+    hostname = "ollama-apu"
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
+  }
+
+  # AMD APU specific passthrough
+  device_passthrough {
+    path = "/dev/dri/renderD128"
+  }
+  device_passthrough {
+    path = "/dev/kfd"
+  }
+
+  # Note: Required inside LXC to actually serve:
+  # curl -fsSL https://ollama.com/install.sh | sh
+  # systemctl edit ollama.service -> Environment="OLLAMA_HOST=0.0.0.0"
+  # ollama pull nomic-embed-text
+}
