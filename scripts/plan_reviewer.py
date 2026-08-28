@@ -19,13 +19,13 @@ def extract_json_block(text):
         
     return text
 
-def evaluate_plan(plan_json_path, prompt_text, api_key, model="gpt-4o"):
+def trigger_webhook(plan_json_path, prompt_text, webhook_url, webhook_secret, pr_number, repo):
     with open(plan_json_path, 'r') as f:
         plan_data = json.load(f)
 
     resource_changes = plan_data.get('resource_changes', [])
     
-    # Simplify the plan for the LLM
+    # Simplify the plan for the webhook payload
     simplifed_plan = []
     for rc in resource_changes:
         addr = rc.get('address')
@@ -33,8 +33,6 @@ def evaluate_plan(plan_json_path, prompt_text, api_key, model="gpt-4o"):
         before = rc.get('change', {}).get('before', {})
         after = rc.get('change', {}).get('after', {})
         
-        # Omit huge binary or complex fields if necessary, 
-        # but for OpenTofu baseline infrastructure, it usually fits fine.
         simplifed_plan.append({
             "address": addr,
             "actions": actions,
@@ -42,109 +40,73 @@ def evaluate_plan(plan_json_path, prompt_text, api_key, model="gpt-4o"):
             "after": after,
         })
     
-    plan_str = json.dumps(simplifed_plan, indent=2)
-    
-    system_prompt = (
-        "You are an infrastructure security and compliance reviewer.\n"
-        "Your task is to evaluate an OpenTofu (Terraform) plan against the user's original implementation request.\n"
-        "Criteria:\n"
-        "1. INTENT MATCH: Does the plan achieve the requested state as described in the prompt?\n"
-        "2. NO UNINTENDED DESTRUCTION: Are there destructive changes (delete/replace) to resources not implied by the prompt?\n"
-        "3. SCOPE CONTAINMENT: Does it avoid modifying resources outside the requested scope?\n\n"
-        "Respond with a JSON object containing exactly two fields (no other text):\n"
-        "{\n"
-        '  "approved": <true or false>,\n'
-        '  "reason": "<short explanation of your decision>"\n'
-        "}"
-    )
-
-    user_prompt = (
-        f"Original User Request:\n{prompt_text}\n\n"
-        f"OpenTofu Plan Changes:\n{plan_str}\n"
-    )
-
-    url = os.environ.get("OPENAI_API_BASE")
-    if not url:
-        if os.environ.get("OPENROUTER_API_KEY") and not os.environ.get("OPENAI_API_KEY"):
-            url = "https://openrouter.ai/api/v1/chat/completions"
-        else:
-            url = "https://api.openai.com/v1/chat/completions"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-
     body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ]
+        "repository": repo,
+        "pull_request": pr_number,
+        "original_request": prompt_text,
+        "plan": simplifed_plan
     }
-
-    req = urllib.request.Request(url, data=json.dumps(body).encode('utf-8'), headers=headers, method="POST")
-    content = ""
+    
+    headers = {
+        "Content-Type": "application/json"
+    }
+    if webhook_secret:
+        headers["Authorization"] = f"Bearer {webhook_secret}"
+        
+    req = urllib.request.Request(
+        webhook_url, 
+        data=json.dumps(body).encode('utf-8'), 
+        headers=headers, 
+        method="POST"
+    )
+    
     try:
         with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read().decode('utf-8'))
-            content = result["choices"][0]["message"]["content"]
-            
-            clean_content = extract_json_block(content)
-            decision = json.loads(clean_content)
-            return decision
+            print(f"Webhook triggered successfully. Status: {response.getcode()}")
+            return True
     except urllib.error.HTTPError as e:
-        print(f"HTTP Error calling LLM API: {e}")
+        print(f"HTTP Error triggering webhook: {e}")
         try:
             print(e.read().decode('utf-8'))
         except Exception:
             pass
-        sys.exit(2)
-    except urllib.error.URLError as e:
-        print(f"URL Error calling LLM API: {e}")
-        sys.exit(2)
-    except json.JSONDecodeError as e:
-        print(f"Error parsing JSON from LLM: {e}")
-        if 'content' in locals():
-            print(f"Raw response: {content}")
-        sys.exit(2)
+        return False
+    except Exception as e:
+        print(f"Error triggering webhook: {e}")
+        return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate OpenTofu plan using LLM")
+    parser = argparse.ArgumentParser(description="Trigger Hermes webhook for plan review")
     parser.add_argument("--plan-json", required=True, help="Path to tofu plan json")
-    parser.add_argument("--prompt", help="Original prompt text")
     parser.add_argument("--prompt-file", help="Path to original prompt text file")
-    parser.add_argument("--model", default=os.environ.get("LLM_MODEL", "gpt-4o"), help="Model to use")
+    parser.add_argument("--pr-number", help="Pull request number")
+    parser.add_argument("--repo", help="GitHub repository")
     args = parser.parse_args()
 
-    # Support either OPENAI_API_KEY or OPENROUTER_API_KEY (or ANTHROPIC_API_KEY if using Anthropic natively, but let's assume OpenAI compat)
-    api_key = os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        print("OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is required")
+    webhook_url = os.environ.get("HERMES_WEBHOOK_URL")
+    webhook_secret = os.environ.get("HERMES_WEBHOOK_SECRET")
+    
+    if not webhook_url:
+        print("HERMES_WEBHOOK_URL environment variable is required")
         sys.exit(2)
         
-    if args.prompt:
-        prompt_text = args.prompt
-    elif args.prompt_file:
-        try:
-            with open(args.prompt_file, 'r') as f:
-                prompt_text = f.read()
-        except Exception as e:
-            print(f"Error reading prompt file: {e}")
-            sys.exit(2)
-    else:
-        print("Either --prompt or --prompt-file is required")
-        sys.exit(2)
-
     try:
-        decision = evaluate_plan(args.plan_json, prompt_text, api_key, args.model)
+        with open(args.prompt_file, 'r') as f:
+            prompt_text = f.read()
     except Exception as e:
-        print(f"Evaluation failed: {e}")
-        sys.exit(2)
-    
-    print(f"Result: {'APPROVED' if decision.get('approved') else 'REJECTED'}")
-    print(f"Reason: {decision.get('reason')}")
+        print(f"Error reading prompt file: {e}")
+        prompt_text = ""
 
-    if decision.get("approved"):
+    success = trigger_webhook(
+        args.plan_json, 
+        prompt_text, 
+        webhook_url, 
+        webhook_secret,
+        args.pr_number,
+        args.repo
+    )
+    
+    if success:
         sys.exit(0)
     else:
         sys.exit(1)

@@ -17,9 +17,10 @@ jobs:
   plan:
     name: tofu validate plan
     runs-on: ubuntu-latest
-    # Environment gate: requires manual approval before secrets are injected.
-    # Prevents fork PRs from accessing prod credentials without human sign-off.
-    environment: plan-gate
+    # Only run on internal PRs to protect secrets
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # No environment gate for plan: we want the PR to automatically generate
+    # the plan so the agent and human can review it before merging.
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
@@ -125,28 +126,25 @@ jobs:
       - name: Generate Plan Summary
         run: cat tfplan.json | python3 scripts/tofu_plan_summary.py > summary.md
 
-      - name: Run Agent Review
+      - name: Trigger Agent Review via Webhook
         id: review
         env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
         run: |
           cat << 'END_EOF' > pr_body.txt
           ${{ github.event.pull_request.body }}
           END_EOF
           
-          set +e
-          python3 scripts/plan_reviewer.py --plan-json tfplan.json --prompt-file pr_body.txt > review_output.md
-          EXIT_CODE=$?
-          set -e
-          
-          if [ $EXIT_CODE -ne 0 ]; then
-            echo "Agent review rejected the plan or failed."
+          if [ -n "$HERMES_WEBHOOK_URL" ]; then
+            python3 scripts/plan_reviewer.py \
+              --plan-json tfplan.json \
+              --prompt-file pr_body.txt \
+              --pr-number "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" > review_output.md || echo "Webhook trigger failed"
           else
-            echo "Agent review approved the plan."
+            echo "Skipping agent webhook trigger (secret missing)." > review_output.md
           fi
-          
-          echo "REVIEW_EXIT_CODE=$EXIT_CODE" >> $GITHUB_ENV
 
       - name: Post Comment to PR
         env:
@@ -154,17 +152,10 @@ jobs:
         run: |
           cat summary.md > pr_comment.md
           echo "" >> pr_comment.md
-          echo "### 🤖 AI Agent Review" >> pr_comment.md
+          echo "### 🤖 AI Agent Trigger" >> pr_comment.md
           cat review_output.md >> pr_comment.md
           
           gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md || echo "Failed to post PR comment, maybe not a PR context?"
-
-      - name: Fail if review rejected
-        run: |
-          if [ "$REVIEW_EXIT_CODE" -ne 0 ]; then
-            echo "Failing job because agent review was not successful."
-            exit 1
-          fi
 
       - name: Cleanup tfvars
         if: always()
