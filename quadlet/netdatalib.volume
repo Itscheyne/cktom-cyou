@@ -1,0 +1,5 @@
+[Unit]
+Description=Netdata Container Quadlet volume netdatalib
+
+[Volume]
+VolumeName=netdatalib

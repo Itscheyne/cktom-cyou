@@ -134,6 +134,7 @@ resource "proxmox_network_linux_bridge" "node4_vmbr0" {
 #   D0:99:13:60:65:80 → 10.13.0.4  (clearndr/489 net0 on node3 SDN)
 #   D0:99:13:49:50:5A → 10.13.0.5  (nast/400 net1 on node3 SDN)
 #   D0:99:13:52:E5:BA → 10.13.0.6  (homeassistant-test/10110 net0 on node3 SDN)
+#   D0:99:13:5A:11:CE → 10.13.0.7  (homeassistant-sandbox/111 net0 on node3 SDN)
 #
 # node4 (10.14.0.0/24):
 #   D0:99:14:79:63:04 → 10.14.0.2  (prod4/443 net2 on node4 SDN)

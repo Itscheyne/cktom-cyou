@@ -11,19 +11,23 @@ concurrency:
 
 jobs:
   plan:
-    name: tofu validate + plan
+    name: tofu validate plan
     runs-on: ubuntu-latest
     # Environment gate: requires manual approval before secrets are injected.
     # Prevents fork PRs from accessing prod credentials without human sign-off.
     environment: plan-gate
 
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
+
     steps:
-      - name: Checkout PR head
+      - name: Checkout head
         uses: actions/checkout@v4
         with:
-          # Explicit ref: pin to PR head sha, not merge commit.
-          # Combined with environment gate this is safe — secrets only
-          # flow after human approval, and workflow changes in the PR
+          # Pin head sha, not merge commit. Combined with environment gate,
+          # secrets only flow after human approval; workflow changes in the PR
           # don't take effect until merged.
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -32,102 +36,88 @@ jobs:
         with:
           tofu_version: "1.9.1"
 
-      - name: join netbird mesh
+      - name: Install netbird
+        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+
+      - name: Join netbird mesh
         run: |
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
           for i in $(seq 1 15); do
             STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            [ "$STATUS" -gt 0 ] && break
+            if [ "$STATUS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
         env:
-          NODE1_ENDPOINT: ${{ vars.NODE1_ENDPOINT }}
-          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
-          NODE3_ENDPOINT: ${{ vars.NODE3_ENDPOINT }}
-          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
-          NODE4_ENDPOINT: ${{ vars.NODE4_ENDPOINT }}
-          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: Write tfvars
         run: |
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure = true
           node1_endpoint   = "${NODE1_ENDPOINT}"
-          node1_api_token  = "${NODE1_API_TOKEN}"
           node3_endpoint   = "${NODE3_ENDPOINT}"
-          node3_api_token  = "${NODE3_API_TOKEN}"
           node4_endpoint   = "${NODE4_ENDPOINT}"
-          node4_api_token  = "${NODE4_API_TOKEN}"
           EOF
-
-      - name: Connect Netbird VPN
-        uses: Alemiz112/netbird-connect@8aa36452fc8229f9d98b0f22f2ac7bfa90d2552b  # v1
-        with:
-          setup-key: ${{ secrets.NETBIRD_SETUP_KEY }}
+          format_token() {
+            local token="$1"
+            local token_type="$2"
+            if [ -n "$token" ]; then
+              if [[ "$token" != *"!"* ]]; then
+                token="ghprod@pve!${token_type}=${token}"
+              fi
+              echo "$token"
+            fi
+          }
+          T1=$(format_token "${NODE1_API_TOKEN}" "plan")
+          if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T3=$(format_token "${NODE3_API_TOKEN}" "plan")
+          if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
+          T4=$(format_token "${NODE4_API_TOKEN}" "plan")
+          if [ -n "$T4" ]; then echo "node4_api_token = \"$T4\"" >> ci.auto.tfvars; fi
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
 
       - name: tofu init
-        run: tofu init -input=false -lockfile=readonly
+        run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
       - name: tofu validate
         run: tofu validate
 
       - name: tofu plan
-        id: plan
-        run: tofu plan -input=false -no-color -out=tfplan 2>&1 | tee plan_output.txt
-
-      - name: Post plan to PR
-        uses: actions/github-script@v7
-        if: always()
+        run: |
+          PLAN_FLAGS="-input=false -out=tfplan.binary"
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+          fi
+          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
+            echo "node3 host ($NODE3_HOST) unreachable/offline; excluding module.node3"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node3"
+          fi
+          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE4_HOST" ] || ! getent hosts "$NODE4_HOST" >/dev/null 2>&1; then
+            echo "node4 host ($NODE4_HOST) unreachable/offline; excluding module.node4"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node4"
+          fi
+          tofu plan $PLAN_FLAGS
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        with:
-          script: |
-            const fs = require('fs');
-            const output = fs.readFileSync('plan_output.txt', 'utf8');
-            const truncated = output.length > 60000
-              ? output.slice(0, 60000) + '\n\n... (truncated, see full run logs)'
-              : output;
-            const headSha = process.env.HEAD_SHA;
-            const body = [
-              `### tofu plan — \`${headSha}\``,
-              '',
-              '<details><summary>Plan output</summary>',
-              '',
-              '```hcl',
-              truncated,
-              '```',
-              '',
-              '</details>',
-            ].join('\n');
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
-            const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-            });
-            const existing = comments.find(c =>
-              c.user.login === 'github-actions[bot]' &&
-              c.body.startsWith('### tofu plan')
-            );
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-            }
+      - name: Show plan summary
+        run: tofu show -no-color tfplan.binary
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan
+        run: rm -f ci.auto.tfvars tfplan.binary

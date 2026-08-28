@@ -8,7 +8,9 @@ EXCLUDE := \
 	-exclude=kubernetes_namespace_v1.longhorn_system \
 	-exclude=kubernetes_storage_class_v1.longhorn_default \
 	-exclude=proxmox_sdn_vnet.node1 \
-	-exclude=proxmox_virtual_environment_sdn_vnet.node1
+	-exclude=proxmox_virtual_environment_sdn_vnet.node1 \
+	-exclude=proxmox_sdn_zone_simple.internal \
+	-exclude=proxmox_virtual_environment_sdn_zone_simple.internal
 
 .PHONY: plan apply plan-all apply-all
 

@@ -1,0 +1,6 @@
+[Unit]
+Description=Internal network for containers
+
+[Network]
+NetworkName=internal
+Driver=bridge
