@@ -13,6 +13,9 @@ jobs:
   apply:
     name: tofu apply
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     # Environment gate: requires manual approval before secrets are injected.
     # Remove 'environment:' line below to auto-apply on merge without gate.
     environment: apply-gate
@@ -101,7 +104,8 @@ jobs:
             echo "node4 host ($NODE4_HOST) unreachable/offline; excluding module.node4"
             APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node4"
           fi
-          tofu apply $APPLY_FLAGS
+          set -o pipefail
+          tofu apply $APPLY_FLAGS 2>&1 | tee apply_output.log
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
@@ -110,3 +114,58 @@ jobs:
       - name: Cleanup tfvars
         if: always()
         run: rm -f ci.auto.tfvars
+      - name: Report CI Failure to Hermes
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LOG_SUMMARY=$(tail -n 200 apply_output.log 2>/dev/null || echo "Log not found")
+          
+          JSON_PAYLOAD=$(jq -n \
+            --arg event "ci_failure" \
+            --arg workflow "${{ github.workflow }}" \
+            --arg run_id "${{ github.run_id }}" \
+            --arg repository "${{ github.repository }}" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg commit_sha "${{ github.sha }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg error_step "tofu apply" \
+            --arg logs_summary "$LOG_SUMMARY" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              event: $event,
+              workflow: $workflow,
+              run_id: ($run_id | tonumber),
+              repository: $repository,
+              branch: $branch,
+              commit_sha: $commit_sha,
+              actor: $actor,
+              error_step: $error_step,
+              logs_summary: $logs_summary,
+              run_url: $run_url
+            }')
+            
+          cat <<EoBody > issue_body.md
+          CI \`tofu apply\` failed. Please investigate and fix the infrastructure code.
+          
+          ### Automated Context
+          <!-- HERMES_PAYLOAD_START -->
+          \`\`\`json
+          ${JSON_PAYLOAD}
+          \`\`\`
+          <!-- HERMES_PAYLOAD_END -->
+          
+          ### Error Logs
+          <details>
+          <summary>Click to view full failure log</summary>
+          
+          \`\`\`text
+          ${LOG_SUMMARY}
+          \`\`\`
+          </details>
+          EoBody
+          
+          gh issue create \
+            --title "[CI Failure] tofu-apply failed on branch: ${{ github.ref_name }}" \
+            --label "ci-failure,agent-action-required" \
+            --body-file issue_body.md
