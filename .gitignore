@@ -25,3 +25,7 @@ tofu-plan-test
 .gemini/
 MEMORY.md.original
 CLAUDE.md.original
+
+# Python
+__pycache__/
+*.pyc
