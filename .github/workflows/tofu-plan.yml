@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 # Prevent concurrent plan runs on the same PR
 concurrency:
   group: tofu-plan-${{ github.event.pull_request.number }}
@@ -115,9 +119,53 @@ jobs:
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
-      - name: Show plan summary
-        run: tofu show -no-color tfplan.binary
+      - name: Export plan to JSON
+        run: tofu show -json tfplan.binary > tfplan.json
+
+      - name: Generate Plan Summary
+        run: cat tfplan.json | python3 scripts/tofu_plan_summary.py > summary.md
+
+      - name: Run Agent Review
+        id: review
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          cat << 'END_EOF' > pr_body.txt
+          ${{ github.event.pull_request.body }}
+          END_EOF
+          
+          set +e
+          python3 scripts/plan_reviewer.py --plan-json tfplan.json --prompt-file pr_body.txt > review_output.md
+          EXIT_CODE=$?
+          set -e
+          
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Agent review rejected the plan or failed."
+          else
+            echo "Agent review approved the plan."
+          fi
+          
+          echo "REVIEW_EXIT_CODE=$EXIT_CODE" >> $GITHUB_ENV
+
+      - name: Post Comment to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat summary.md > pr_comment.md
+          echo "" >> pr_comment.md
+          echo "### 🤖 AI Agent Review" >> pr_comment.md
+          cat review_output.md >> pr_comment.md
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md || echo "Failed to post PR comment, maybe not a PR context?"
+
+      - name: Fail if review rejected
+        run: |
+          if [ "$REVIEW_EXIT_CODE" -ne 0 ]; then
+            echo "Failing job because agent review was not successful."
+            exit 1
+          fi
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary
+        run: rm -f ci.auto.tfvars tfplan.binary tfplan.json summary.md review_output.md pr_comment.md pr_body.txt
