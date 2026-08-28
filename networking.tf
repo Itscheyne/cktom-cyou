@@ -141,23 +141,27 @@ resource "proxmox_network_linux_bridge" "node4_vmbr0" {
 # Restoring orphaned resources to prevent Tofu from attempting to destroy them.
 
 resource "proxmox_sdn_zone_simple" "internal" {
-  id = "internal"
+  provider = proxmox.node1
+  id       = "internal"
   lifecycle { ignore_changes = all }
 }
 
 resource "proxmox_sdn_vnet" "node1" {
-  id   = "node1"
-  zone = "internal"
+  provider = proxmox.node1
+  id       = "node1"
+  zone     = "internal"
   lifecycle { ignore_changes = all }
 }
 
 resource "proxmox_virtual_environment_sdn_zone_simple" "internal" {
-  id = "internal"
+  provider = proxmox.node1
+  id       = "internal"
   lifecycle { ignore_changes = all }
 }
 
 resource "proxmox_virtual_environment_sdn_vnet" "node1" {
-  id   = "node1"
-  zone = "internal"
+  provider = proxmox.node1
+  id       = "node1"
+  zone     = "internal"
   lifecycle { ignore_changes = all }
 }
