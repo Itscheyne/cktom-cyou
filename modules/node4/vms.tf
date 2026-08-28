@@ -66,6 +66,14 @@ resource "proxmox_virtual_environment_vm" "node4_pdm" {
     vlan_id     = 4
   }
 
+  # net1: node4 SDN internal zone (10.14.0.0/24) — live-only, added during drift reconciliation
+  network_device {
+    bridge      = "node4"
+    mac_address = "D0:99:14:ED:92:21"
+    model       = "virtio"
+    firewall    = true
+  }
+
   boot_order = ["scsi0", "ide2", "net0"]
 
   operating_system {
@@ -99,7 +107,7 @@ resource "proxmox_virtual_environment_vm" "node4_homeassistant_ha" {
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 6144 # live: 6144 (drift-reconciled)
   }
 
   efi_disk {
@@ -785,57 +793,5 @@ resource "proxmox_virtual_environment_vm" "node4_talos_template" {
   }
 }
 
-resource "proxmox_virtual_environment_vm" "node4_fipa" {
-  provider  = proxmox
-  name      = "fipa"
-  node_name = "node4"
-  vm_id     = 150
-  started   = false
-
-  bios    = "ovmf"
-  machine = "q35"
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores   = 3
-    sockets = 1
-    type    = "host"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  efi_disk {
-    datastore_id      = "imagepool0"
-    type              = "4m"
-    pre_enrolled_keys = true
-  }
-
-  network_device {
-    bridge      = "vmbr0"
-    mac_address = "D0:99:14:3D:2A:04"
-    model       = "virtio"
-    firewall    = true
-    vlan_id     = 3
-  }
-
-  network_device {
-    bridge      = "vmbr0"
-    mac_address = "D0:99:14:71:08:B9"
-    model       = "virtio"
-    firewall    = true
-    vlan_id     = 4
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
+# node4_fipa (vm_id 150) removed: VM no longer exists live on node4 (drift-reconciled,
+# see DRIFT.md). State entry removed via `tofu state rm`.
