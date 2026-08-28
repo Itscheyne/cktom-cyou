@@ -116,8 +116,19 @@ jobs:
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
       - name: Show plan summary
-        run: tofu show -no-color tfplan.binary
+        run: |
+          tofu show -no-color tfplan.binary
+          tofu show -no-color tfplan.binary > tfplan.txt
+
+      - name: Upload plan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tofu-plan-${{ github.event.pull_request.number }}
+          path: |
+            tfplan.binary
+            tfplan.txt
+          retention-days: 7
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary
+        run: rm -f ci.auto.tfvars tfplan.binary tfplan.txt
