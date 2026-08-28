@@ -116,8 +116,44 @@ jobs:
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
       - name: Show plan summary
-        run: tofu show -no-color tfplan.binary
+        run: |
+          tofu show -no-color tfplan.binary > plan.txt
+          cat plan.txt
+          tofu show -json tfplan.binary > tfplan.json
+        
+      - name: Generate Rover Diagram
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/src" im2nguyen/rover:latest -workingDir /src -planJSONPath /src/tfplan.json -genImage true -standalone true || echo "Rover failed, but continuing"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tofu-plan-output
+          path: |
+            plan.txt
+            tfplan.json
+            rover.zip
+            rover.svg
+
+      - name: Add PR Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('plan.txt')) {
+              let plan = fs.readFileSync('plan.txt', 'utf8');
+              if (plan.length > 55000) {
+                plan = plan.substring(0, 55000) + '\n... (truncated)';
+              }
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: "### Tofu Plan Summary\n```terraform\n" + plan + "\n```\n*Note: Full plan and diagrams (Rover dashboard) are attached as workflow artifacts.*"
+              });
+            }
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary
+        run: rm -f ci.auto.tfvars tfplan.binary tfplan.json plan.txt
