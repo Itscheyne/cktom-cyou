@@ -13,6 +13,9 @@ jobs:
   plan:
     name: tofu validate plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     # Environment gate: requires manual approval before secrets are injected.
     # Prevents fork PRs from accessing prod credentials without human sign-off.
     environment: plan-gate
@@ -115,9 +118,47 @@ jobs:
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
-      - name: Show plan summary
-        run: tofu show -no-color tfplan.binary
+      - name: Generate plan JSON and text
+        run: |
+          tofu show -no-color tfplan.binary > tfplan.txt
+          tofu show -json tfplan.binary > tfplan.json
+
+      - name: Upload plan artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tofu-plan-output
+          path: |
+            tfplan.txt
+            tfplan.json
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('tfplan.txt', 'utf8');
+            const maxLen = 65000;
+            const truncated = planOutput.length > maxLen ? planOutput.substring(0, maxLen) + '\n\n... (truncated)' : planOutput;
+            
+            const body = `### OpenTofu Plan Validation 📝
+            
+            <details>
+            <summary>Click to view plan</summary>
+            
+            \`\`\`hcl
+            ${truncated}
+            \`\`\`
+            </details>
+            `;
+            
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body
+            });
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary
+        run: rm -f ci.auto.tfvars tfplan.binary tfplan.txt tfplan.json
