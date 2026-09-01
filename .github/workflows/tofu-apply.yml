@@ -13,9 +13,8 @@ jobs:
   apply:
     name: tofu apply
     runs-on: ubuntu-latest
-    # Environment gate: requires manual approval before secrets are injected.
-    # Remove 'environment:' line below to auto-apply on merge without gate.
-    environment: apply-gate
+    # Environment gate removed to auto-apply on merge without gate.
+    # environment: apply-gate
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}

@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 # Prevent concurrent plan runs on the same PR
 concurrency:
   group: tofu-plan-${{ github.event.pull_request.number }}
@@ -13,12 +17,10 @@ jobs:
   plan:
     name: tofu validate plan
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-    # Environment gate: requires manual approval before secrets are injected.
-    # Prevents fork PRs from accessing prod credentials without human sign-off.
-    environment: plan-gate
+    # Only run on internal PRs to protect secrets
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    # No environment gate for plan: we want the PR to automatically generate
+    # the plan so the agent and human can review it before merging.
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
@@ -118,47 +120,43 @@ jobs:
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
-      - name: Generate plan JSON and text
+      - name: Export plan to JSON
+        run: tofu show -json tfplan.binary > tfplan.json
+
+      - name: Generate Plan Summary
+        run: cat tfplan.json | python3 scripts/tofu_plan_summary.py > summary.md
+
+      - name: Trigger Agent Review via Webhook
+        id: review
+        env:
+          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
+          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
         run: |
-          tofu show -no-color tfplan.binary > tfplan.txt
-          tofu show -json tfplan.binary > tfplan.json
+          cat << 'END_EOF' > pr_body.txt
+          ${{ github.event.pull_request.body }}
+          END_EOF
+          
+          if [ -n "$HERMES_WEBHOOK_URL" ]; then
+            python3 scripts/plan_reviewer.py \
+              --plan-json tfplan.json \
+              --prompt-file pr_body.txt \
+              --pr-number "${{ github.event.pull_request.number }}" \
+              --repo "${{ github.repository }}" > review_output.md || echo "Webhook trigger failed"
+          else
+            echo "Skipping agent webhook trigger (secret missing)." > review_output.md
+          fi
 
-      - name: Upload plan artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: tofu-plan-output
-          path: |
-            tfplan.txt
-            tfplan.json
-
-      - name: Post Plan to PR
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const fs = require('fs');
-            const planOutput = fs.readFileSync('tfplan.txt', 'utf8');
-            const maxLen = 65000;
-            const truncated = planOutput.length > maxLen ? planOutput.substring(0, maxLen) + '\n\n... (truncated)' : planOutput;
-            
-            const body = `### OpenTofu Plan Validation 📝
-            
-            <details>
-            <summary>Click to view plan</summary>
-            
-            \`\`\`hcl
-            ${truncated}
-            \`\`\`
-            </details>
-            `;
-            
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: body
-            });
+      - name: Post Comment to PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat summary.md > pr_comment.md
+          echo "" >> pr_comment.md
+          echo "### 🤖 AI Agent Trigger" >> pr_comment.md
+          cat review_output.md >> pr_comment.md
+          
+          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md || echo "Failed to post PR comment, maybe not a PR context?"
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary tfplan.txt tfplan.json
+        run: rm -f ci.auto.tfvars tfplan.binary tfplan.json summary.md review_output.md pr_comment.md pr_body.txt

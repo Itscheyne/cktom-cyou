@@ -30,7 +30,7 @@ resource "proxmox_virtual_environment_vm" "node3_nast" {
   }
 
   memory {
-    dedicated = 7164
+    dedicated = 4096
   }
 
   efi_disk {
@@ -55,6 +55,15 @@ resource "proxmox_virtual_environment_vm" "node3_nast" {
     discard      = "on"
   }
 
+  # virtio0: datapool0-zvols:vm-400-disk-0, 4T
+  disk {
+    interface    = "virtio0"
+    datastore_id = "datapool0-zvols"
+    size         = 4096
+    iothread     = true
+    discard      = "on"
+  }
+
   # net0: vmbr2, VLAN 3 (management)
   network_device {
     bridge      = "vmbr2"
@@ -63,14 +72,14 @@ resource "proxmox_virtual_environment_vm" "node3_nast" {
     vlan_id     = 3
   }
 
-  # net1: node3 SDN bridge (10.13.0.5 via DHCP)
+  # net1: node3 SDN bridge, 10.13.0.5 (DHCP)
   network_device {
     bridge      = "node3"
     mac_address = "D0:99:13:49:50:5A"
     model       = "virtio"
   }
 
-  boot_order = ["net0"]
+  boot_order = ["scsi1"]
 
   operating_system {
     type = "l26"
@@ -86,7 +95,7 @@ resource "proxmox_virtual_environment_vm" "node3_utm" {
   name      = "utm"
   node_name = "node3"
   vm_id     = 490
-  started   = true
+  started   = false # live: stopped (drift-reconciled)
 
   bios    = "ovmf"
   machine = "q35"
@@ -207,20 +216,19 @@ resource "proxmox_virtual_environment_vm" "node3_so" {
     type         = "4m"
   }
 
-  # scsi0: rpool-zvols:vm-500-disk-2, 100G
+  # scsi0: rpool-zvols:vm-500-disk-3, 812G
   disk {
     interface    = "scsi0"
     datastore_id = "rpool-zvols"
-    size         = 100
+    size         = 812
     iothread     = true
-    discard      = "on"
   }
 
-  # scsi1: rpool-zvols:vm-500-disk-3, 612G
+  # scsi1: rpool-zvols:vm-500-disk-2, 100G
   disk {
     interface    = "scsi1"
     datastore_id = "rpool-zvols"
-    size         = 612
+    size         = 100
     iothread     = true
   }
 
@@ -246,7 +254,7 @@ resource "proxmox_virtual_environment_vm" "node3_so" {
 
   serial_device {}
 
-  boot_order = ["scsi0", "ide2"]
+  boot_order = ["ide2"]
 
   operating_system {
     type = "l26"
@@ -428,7 +436,7 @@ resource "proxmox_virtual_environment_vm" "node3_homeassistant_test" {
   name      = "homeassistant-test"
   node_name = "node3"
   vm_id     = 10110
-  started   = true
+  started   = false # live: stopped (drift-reconciled)
   tags      = ["dev"]
 
   bios    = "ovmf"
@@ -626,6 +634,10 @@ resource "proxmox_virtual_environment_container" "node3_storage" {
   node_name   = "node3"
   vm_id       = 777
   started     = false
+  # live: hostname=storage (drift-reconciled)
+  initialization {
+    hostname = "storage"
+  }
 
   cpu {
     cores = 4
@@ -635,14 +647,27 @@ resource "proxmox_virtual_environment_container" "node3_storage" {
     dedicated = 1024
   }
 
-  disk {
-    datastore_id = "local"
+  disk { # live: rootfs imagepool0-zvols:subvol-777-disk-0, 20G (drift-reconciled: was local)
+    datastore_id = "imagepool0-zvols"
     size         = 20
+  }
+
+  network_interface { # live net0: bridge=vmbr0 (live-only, undeclared until now)
+    name        = "eth0"
+    bridge      = "vmbr0"
+    mac_address = "D0:99:13:EA:94:9B"
+  }
+
+  network_interface { # live net1: bridge=vmbr2, VLAN 3 (live-only, undeclared until now)
+    name        = "eth1"
+    bridge      = "vmbr2"
+    mac_address = "D0:99:13:C0:E7:F2"
+    vlan_id     = 3
   }
 
   operating_system {
     template_file_id = "local:vztmpl/placeholder.tar.xz"
-    type             = "unmanaged"
+    type             = "debian" # live: debian (drift-reconciled: was unmanaged)
   }
 
   lifecycle {
@@ -662,11 +687,11 @@ resource "proxmox_virtual_environment_vm" "node3_dev" {
   cpu {
     cores   = 6
     sockets = 1
-    type    = "x86-64-v3"
+    type    = "host"
   }
 
   memory {
-    dedicated = 12000
+    dedicated = 6144 # live: 6144 (drift-reconciled)
   }
 
   efi_disk {
@@ -674,10 +699,20 @@ resource "proxmox_virtual_environment_vm" "node3_dev" {
     type         = "4m"
   }
 
+  # virtio0: rpool-zvols:vm-299-disk-0, ~131.5G (134656M, resized live)
   disk {
     interface    = "virtio0"
     datastore_id = "rpool-zvols"
-    size         = 128
+    size         = 132
+    iothread     = true
+    file_format  = "raw"
+  }
+
+  # virtio1: rpool-zvols:vm-299-disk-1, 64G (live-only, undeclared until now)
+  disk {
+    interface    = "virtio1"
+    datastore_id = "rpool-zvols"
+    size         = 64
     iothread     = true
     file_format  = "raw"
   }
@@ -709,7 +744,7 @@ resource "proxmox_virtual_environment_vm" "node3_fipa" {
   cpu {
     cores   = 4
     sockets = 1
-    type    = "host"
+    type    = "x86-64-v3"
   }
 
   memory {
@@ -861,7 +896,7 @@ resource "proxmox_virtual_environment_vm" "node3_prod3_0" {
   cpu {
     cores   = 6
     sockets = 1
-    type    = "host"
+    type    = "x86-64-v3" # live: x86-64-v3 (drift-reconciled)
   }
 
   memory {
@@ -893,7 +928,7 @@ resource "proxmox_virtual_environment_container" "node3_nast" {
   provider  = proxmox
   node_name = "node3"
   vm_id     = 445
-  started   = true
+  started   = false # live: stopped (drift-reconciled)
   tags      = ["infra"]
 
   cpu {
@@ -909,12 +944,25 @@ resource "proxmox_virtual_environment_container" "node3_nast" {
     size         = 20
   }
 
+  mount_point { # live: mp0 datapool0:445/vm-445-disk-0.raw, mp=/data, 4T (live-only, undeclared until now)
+    volume = "datapool0"
+    path   = "/data"
+    size   = "4T"
+  }
+
   network_interface {
     name        = "sf"
     bridge      = "vmbr2"
     firewall    = true
     mac_address = "D0:99:13:EB:54:10"
     vlan_id     = 3
+  }
+
+  network_interface { # live net1: bridge=node3 (live-only, undeclared until now)
+    name        = "node3"
+    bridge      = "node3"
+    firewall    = true
+    mac_address = "D0:99:13:08:60:74"
   }
 
   operating_system {
@@ -931,7 +979,7 @@ resource "proxmox_virtual_environment_container" "node3_dir" {
   provider  = proxmox
   node_name = "node3"
   vm_id     = 10389
-  started   = true
+  started   = false # live: stopped (drift-reconciled)
 
   cpu {
     cores = 2
@@ -1016,4 +1064,59 @@ resource "proxmox_virtual_environment_container" "node3_ollama" {
   # curl -fsSL https://ollama.com/install.sh | sh
   # systemctl edit ollama.service -> Environment="OLLAMA_HOST=0.0.0.0"
   # ollama pull nomic-embed-text
+}
+# node3_hermes (vm_id 9119) — live-unmanaged VM discovered during drift reconciliation.
+# NOTE: `tofu import` for this resource failed with HTTP 403 (VM.Config.Disk) —
+# the active API token lacks permission to read the VM's disk files. Config below
+# is written from DRIFT.md live-inspection notes but is NOT yet imported into state.
+# DO NOT `tofu apply` until either (a) import succeeds with a token that has
+# VM.Config.Disk, or (b) this resource is confirmed absent from state — applying
+# against an un-imported vm_id=9119 will attempt to create a duplicate VM.
+resource "proxmox_virtual_environment_vm" "node3_hermes" {
+  provider  = proxmox
+  name      = "hermes"
+  node_name = "node3"
+  vm_id     = 9119
+  started   = true
+  on_boot   = true
+
+  bios    = "ovmf"
+  machine = "q35"
+
+  cpu {
+    cores   = 6
+    sockets = 1
+    type    = "x86-64-v3"
+  }
+
+  memory {
+    dedicated = 6144
+  }
+
+  efi_disk {
+    datastore_id = "rpool-zvols"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "virtio0"
+    datastore_id = "rpool-zvols"
+    size         = 100
+  }
+
+  network_device {
+    bridge      = "vmbr0"
+    mac_address = "D0:99:13:6A:D8:A0"
+    model       = "virtio"
+    firewall    = true
+    vlan_id     = 4
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
 }
