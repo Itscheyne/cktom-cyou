@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents (Hermes) working in this repository.\n\n**CRITICAL:** Read `AGENTS_WORKFLOW.md` for coordination rules, file ownership, and PR conventions.
 
 ## Commands
 
@@ -291,3 +291,4 @@ Problems: Backlog → In Progress → Addressed
 Decisions: Pending Implementation → Shipped
 Artifacts: active → refresh_due → superseded/deprecated
 ```
+\n## Workflow\nSee `AGENTS_WORKFLOW.md` for rules regarding branch naming and coordination.
