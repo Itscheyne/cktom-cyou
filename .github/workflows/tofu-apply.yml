@@ -88,7 +88,7 @@ jobs:
           NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
             echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
-            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1"
           fi
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
@@ -128,6 +128,9 @@ jobs:
     name: tofu apply
     needs: plan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     # Human approval gate: this job pauses until a required reviewer on the
     # 'apply-gate' environment approves the deployment. Applies the exact
     # plan binary computed by the `plan` job above — no re-plan, no drift
@@ -206,7 +209,68 @@ jobs:
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
       - name: tofu apply
-        run: tofu apply tfplan.binary
+        run: |
+          set -o pipefail
+          tofu apply tfplan.binary 2>&1 | tee apply_output.log
+
+      - name: Report CI Failure to Hermes
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LOG_SUMMARY=$(tail -n 200 apply_output.log 2>/dev/null || echo "Log not found")
+
+          JSON_PAYLOAD=$(jq -n \
+            --arg event "ci_failure" \
+            --arg workflow "${{ github.workflow }}" \
+            --arg run_id "${{ github.run_id }}" \
+            --arg repository "${{ github.repository }}" \
+            --arg branch "${{ github.ref_name }}" \
+            --arg commit_sha "${{ github.sha }}" \
+            --arg actor "${{ github.actor }}" \
+            --arg error_step "tofu apply" \
+            --arg logs_summary "$LOG_SUMMARY" \
+            --arg run_url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            '{
+              event: $event,
+              workflow: $workflow,
+              run_id: $run_id,
+              repository: $repository,
+              branch: $branch,
+              commit_sha: $commit_sha,
+              actor: $actor,
+              error_step: $error_step,
+              logs_summary: $logs_summary,
+              run_url: $run_url
+            }')
+
+          ISSUE_BODY=$(cat <<ISSUE_EOF
+          CI \`tofu apply\` failed. Please investigate and fix the infrastructure code.
+
+          ### Automated Context
+          <!-- HERMES_PAYLOAD_START -->
+          \`\`\`json
+          $JSON_PAYLOAD
+          \`\`\`
+          <!-- HERMES_PAYLOAD_END -->
+
+          ### Human-Readable Summary
+          - **Workflow:** ${{ github.workflow }}
+          - **Branch:** ${{ github.ref_name }}
+          - **Commit:** ${{ github.sha }}
+          - **Run URL:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ### Last 200 Lines of Logs
+          \`\`\`
+          $LOG_SUMMARY
+          \`\`\`
+          ISSUE_EOF
+          )
+
+          gh issue create \
+            --title "[CI Failure] tofu-apply failed on branch: ${{ github.ref_name }}" \
+            --body "$ISSUE_BODY" \
+            --label "ci-failure,agent-action-required" || echo "Failed to create issue"
 
       - name: Post apply result
         if: always()
