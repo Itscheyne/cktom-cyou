@@ -1,0 +1,25 @@
+name: "Branch Name Lint"
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  lint-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch name convention
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Branch: $BRANCH_NAME"
+          # Regular users might create PRs, maybe we only enforce on agent/* branches?
+          # Actually, let's enforce if the author is an agent, or we can just enforce generally
+          # The convention is agent/<profile>/<task_id>-<desc>
+          # Let's enforce that if it starts with agent/, it matches the full pattern.
+          if [[ "$BRANCH_NAME" == agent/* ]]; then
+            if [[ ! "$BRANCH_NAME" =~ ^agent/[a-zA-Z0-9_-]+/t_[a-f0-9]+-[a-zA-Z0-9_-]+$ ]]; then
+              echo "Error: Branch name '$BRANCH_NAME' does not match convention."
+              echo "Expected format: agent/<profile>/<task_id>-<short_desc>"
+              exit 1
+            fi
+            echo "Branch name follows convention."
+          fi
