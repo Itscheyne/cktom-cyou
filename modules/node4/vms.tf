@@ -66,6 +66,14 @@ resource "proxmox_virtual_environment_vm" "node4_pdm" {
     vlan_id     = 4
   }
 
+  # net1: node4 SDN internal zone (10.14.0.0/24) — live-only, added during drift reconciliation
+  network_device {
+    bridge      = "node4"
+    mac_address = "D0:99:14:ED:92:21"
+    model       = "virtio"
+    firewall    = true
+  }
+
   boot_order = ["scsi0", "ide2", "net0"]
 
   operating_system {
@@ -99,7 +107,7 @@ resource "proxmox_virtual_environment_vm" "node4_homeassistant_ha" {
   }
 
   memory {
-    dedicated = 4096
+    dedicated = 6144 # live: 6144 (drift-reconciled)
   }
 
   efi_disk {
