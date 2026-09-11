@@ -157,6 +157,13 @@ jobs:
           
           gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md || echo "Failed to post PR comment, maybe not a PR context?"
 
+      - name: State validation
+        run: |
+          # Validate planned state against expected resource inventory.
+          # Non-blocking: reports failures as warnings, does not fail the CI job.
+          tofu show -json tfplan.binary \
+            2>/dev/null | python3 scripts/test-state.py || true
+
       - name: Cleanup tfvars
         if: always()
         run: rm -f ci.auto.tfvars tfplan.binary tfplan.json summary.md review_output.md pr_comment.md pr_body.txt
