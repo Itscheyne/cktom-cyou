@@ -116,8 +116,32 @@ jobs:
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
       - name: Show plan summary
-        run: tofu show -no-color tfplan.binary
+        run: |
+          tofu show -no-color tfplan.binary > plan_output.txt
+          echo "### OpenTofu Plan Result (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "<details><summary>Show Plan</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```terraform' >> $GITHUB_STEP_SUMMARY
+          tail -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## OpenTofu Plan Result"
+            echo "<details><summary>Show Plan</summary>"
+            echo ""
+            echo '```terraform'
+            tail -c 60000 plan_output.txt
+            echo '```'
+            echo "</details>"
+          } > plan_comment.md
+          gh pr comment ${{ github.event.pull_request.number }} -F plan_comment.md
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary
+        run: rm -f ci.auto.tfvars tfplan.binary plan_output.txt plan_comment.md

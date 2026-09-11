@@ -10,11 +10,131 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  plan:
+    name: tofu plan preview
+    runs-on: ubuntu-latest
+    # No environment gate here — plan only reads state, uses plan tokens.
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: Install netbird
+        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+
+      - name: Join netbird mesh
+        run: |
+          sudo netbird up \
+            --setup-key "$NETBIRD_SETUP_KEY" \
+            --daemon-addr unix:///var/run/netbird.sock
+          for i in $(seq 1 15); do
+            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
+            if [ "$STATUS" -gt 0 ]; then break; fi
+            sleep 2
+          done
+          sudo netbird status
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: Write tfvars
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure = true
+          node1_endpoint   = "${NODE1_ENDPOINT}"
+          node3_endpoint   = "${NODE3_ENDPOINT}"
+          node4_endpoint   = "${NODE4_ENDPOINT}"
+          EOF
+          format_token() {
+            local token="$1"
+            local token_type="$2"
+            if [ -n "$token" ]; then
+              if [[ "$token" != *"!"* ]]; then
+                token="ghprod@pve!${token_type}=${token}"
+              fi
+              echo "$token"
+            fi
+          }
+          T1=$(format_token "${NODE1_API_TOKEN}" "plan")
+          if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T3=$(format_token "${NODE3_API_TOKEN}" "plan")
+          if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
+          T4=$(format_token "${NODE4_API_TOKEN}" "plan")
+          if [ -n "$T4" ]; then echo "node4_api_token = \"$T4\"" >> ci.auto.tfvars; fi
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
+
+      - name: tofu init
+        run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+      - name: tofu plan
+        run: |
+          PLAN_FLAGS="-input=false -out=tfplan.binary"
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+          fi
+          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
+            echo "node3 host ($NODE3_HOST) unreachable/offline; excluding module.node3"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node3"
+          fi
+          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE4_HOST" ] || ! getent hosts "$NODE4_HOST" >/dev/null 2>&1; then
+            echo "node4 host ($NODE4_HOST) unreachable/offline; excluding module.node4"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node4"
+          fi
+          tofu plan $PLAN_FLAGS
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+
+      - name: Show plan summary
+        run: |
+          tofu show -no-color tfplan.binary > plan_output.txt
+          echo "### OpenTofu Plan Preview (post-merge)" >> $GITHUB_STEP_SUMMARY
+          echo "<details><summary>Plan output</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```terraform' >> $GITHUB_STEP_SUMMARY
+          tail -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload tfplan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan.binary
+          # Retain for 7 days — enough time for human to approve apply
+          retention-days: 7
+
+      - name: Cleanup tfvars
+        if: always()
+        run: rm -f ci.auto.tfvars plan_output.txt
+
   apply:
     name: tofu apply
+    needs: plan
     runs-on: ubuntu-latest
-    # Environment gate: requires manual approval before secrets are injected.
-    # Remove 'environment:' line below to auto-apply on merge without gate.
+    # Environment gate: requires manual approval from cheynetom before secrets flow.
+    # Human sees plan summary in GITHUB_STEP_SUMMARY on the plan job above, then
+    # approves the apply-gate deployment to proceed with this job.
     environment: apply-gate
 
     env:
@@ -30,6 +150,11 @@ jobs:
         uses: opentofu/setup-opentofu@v1
         with:
           tofu_version: "1.9.1"
+
+      - name: Download tfplan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
 
       - name: Install netbird
         run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
@@ -84,28 +209,8 @@ jobs:
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
       - name: tofu apply
-        run: |
-          APPLY_FLAGS="-auto-approve -input=false"
-          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if [ -z "$NODE1_HOST" ] || ! getent hosts "$NODE1_HOST" >/dev/null 2>&1; then
-            echo "node1 host ($NODE1_HOST) unreachable/offline; excluding module.node1"
-            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
-          fi
-          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
-            echo "node3 host ($NODE3_HOST) unreachable/offline; excluding module.node3"
-            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node3"
-          fi
-          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if [ -z "$NODE4_HOST" ] || ! getent hosts "$NODE4_HOST" >/dev/null 2>&1; then
-            echo "node4 host ($NODE4_HOST) unreachable/offline; excluding module.node4"
-            APPLY_FLAGS="$APPLY_FLAGS -exclude=module.node4"
-          fi
-          tofu apply $APPLY_FLAGS
-        env:
-          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
-          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
-          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+        # Apply the exact plan that was reviewed — no re-plan on apply.
+        run: tofu apply -auto-approve tfplan.binary
 
       - name: Cleanup tfvars
         if: always()
