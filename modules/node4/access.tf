@@ -52,3 +52,15 @@ resource "proxmox_virtual_environment_user" "node4_agents" {
     role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
   }
 }
+
+resource "proxmox_virtual_environment_user" "node4_hermes" {
+  provider = proxmox
+  user_id  = "hermes@pve"
+  comment  = "Provisioned for AI agent audit access dynamically"
+
+  acl {
+    path      = "/"
+    propagate = true
+    role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
+  }
+}

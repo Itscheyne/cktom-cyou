@@ -14,3 +14,18 @@ resource "proxmox_virtual_environment_pool" "talos" {
   provider = proxmox
   pool_id  = "talos"
 }
+
+resource "proxmox_virtual_environment_pool" "dev" {
+  provider = proxmox
+  pool_id  = "dev"
+}
+
+resource "proxmox_virtual_environment_pool" "prod" {
+  provider = proxmox
+  pool_id  = "prod"
+}
+
+resource "proxmox_virtual_environment_pool" "protected" {
+  provider = proxmox
+  pool_id  = "protected"
+}

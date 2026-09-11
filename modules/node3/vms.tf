@@ -11,7 +11,7 @@
 
 resource "proxmox_virtual_environment_vm" "node3_nast" {
   provider  = proxmox
-  name      = "nast"
+  name      = "tnast"
   node_name = "node3"
   vm_id     = 400
   started   = false
@@ -423,134 +423,7 @@ resource "proxmox_virtual_environment_vm" "node3_prod3" {
 
 # ── Stopped VMs ──────────────────────────────
 
-resource "proxmox_virtual_environment_vm" "node3_homeassistant_test" {
-  provider  = proxmox
-  name      = "homeassistant-test"
-  node_name = "node3"
-  vm_id     = 10110
-  started   = true
-  tags      = ["dev"]
 
-  bios    = "ovmf"
-  machine = "q35"
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores   = 3
-    sockets = 1
-    type    = "x86-64-v2-AES"
-  }
-
-  memory {
-    dedicated = 2048
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  # scsi0: rpool-zvols:vm-10110-disk-0, 32G
-  disk {
-    interface    = "scsi0"
-    datastore_id = "rpool-zvols"
-    size         = 32
-    iothread     = true
-  }
-
-  # net0: node3 SDN bridge (10.13.0.6 via DHCP)
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:52:E5:BA"
-    model       = "virtio"
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_homeassistant" {
-  provider  = proxmox
-  name      = "homeassistant"
-  node_name = "node3"
-  vm_id     = 110
-  started   = false
-
-  bios    = "ovmf"
-  machine = "q35"
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores   = 4
-    sockets = 1
-    type    = "x86-64-v3"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  tpm_state {
-    datastore_id = "rpool-zvols"
-    version      = "v2.0"
-  }
-
-  # scsi0: rpool-zvols:vm-110-disk-0, 128G
-  disk {
-    interface    = "scsi0"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    iothread     = true
-    discard      = "on"
-  }
-
-  # net0: vmbr2 (2.5GbE bridge)
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "BC:24:11:E8:05:22"
-    model       = "virtio"
-  }
-
-  serial_device {}
-
-  # USB passthrough: Bluetooth, serial adapters
-  usb {
-    host = "0a12:0001"
-  }
-  usb {
-    host = "1a86:7523"
-  }
-  usb {
-    host = "10c4:ea60"
-  }
-  usb {
-    host = "8087:0a2a"
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
 
 # ── Templates ────────────────────────────────
 
@@ -738,156 +611,8 @@ resource "proxmox_virtual_environment_vm" "node3_fipa" {
   }
 }
 
-resource "proxmox_virtual_environment_vm" "node3_prod3_1" {
-  provider  = proxmox
-  name      = "prod3-1"
-  node_name = "node3"
-  vm_id     = 801
-  started   = false
 
-  bios    = "ovmf"
-  machine = "q35"
 
-  cpu {
-    cores   = 8
-    sockets = 1
-    type    = "x86-64-v3"
-  }
-
-  memory {
-    dedicated = 10240
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  disk {
-    interface    = "scsi1"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    file_format  = "raw"
-  }
-
-  # net0: node3 SDN bridge
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:C9:98:FF"
-    model       = "virtio"
-  }
-
-  # net1: vmbr2 VLAN 3
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:36:CE:1B"
-    model       = "virtio"
-    mtu         = 1
-    vlan_id     = 3
-  }
-
-  # net2: vmbr2 VLAN 4
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:DD:79:E7"
-    model       = "virtio"
-    mtu         = 1
-    vlan_id     = 4
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_dev3" {
-  provider  = proxmox
-  name      = "dev3"
-  node_name = "node3"
-  vm_id     = 901
-  started   = false
-
-  cpu {
-    cores   = 6
-    sockets = 1
-    type    = "x86-64-v2-AES"
-  }
-
-  memory {
-    dedicated = 6144
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  disk {
-    interface    = "virtio0"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    iothread     = true
-    file_format  = "raw"
-  }
-
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:D1:97:7B"
-    model       = "virtio"
-    firewall    = true
-    vlan_id     = 3
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_prod3_0" {
-  provider  = proxmox
-  name      = "prod3-0"
-  node_name = "node3"
-  vm_id     = 8001
-  started   = false
-
-  cpu {
-    cores   = 6
-    sockets = 1
-    type    = "host"
-  }
-
-  memory {
-    dedicated = 8192
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:99:51:FC"
-    model       = "virtio"
-    firewall    = true
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
 
 resource "proxmox_virtual_environment_container" "node3_nast" {
   provider  = proxmox
@@ -927,35 +652,22 @@ resource "proxmox_virtual_environment_container" "node3_nast" {
   }
 }
 
-resource "proxmox_virtual_environment_container" "node3_dir" {
+
+# LXC container for Ollama (Host AMD APU via passthrough)
+
+
+resource "proxmox_virtual_environment_container" "node3_llama0" {
   provider  = proxmox
   node_name = "node3"
-  vm_id     = 10389
-  started   = true
+  vm_id     = 100
 
-  cpu {
-    cores = 2
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  disk {
-    datastore_id = "rpool-zvols"
-    size         = 32
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
   }
 
   network_interface {
-    name        = "node3"
-    bridge      = "node3"
-    firewall    = true
-    mac_address = "D0:99:13:4C:1F:C2"
-  }
-
-  operating_system {
-    template_file_id = "local:vztmpl/placeholder.tar.xz"
-    type             = "fedora"
+    name = "eth0"
   }
 
   lifecycle {
@@ -963,104 +675,40 @@ resource "proxmox_virtual_environment_container" "node3_dir" {
   }
 }
 
-# LXC container for Ollama (Host AMD APU via passthrough)
-resource "proxmox_virtual_environment_container" "node3_ollama" {
-  provider     = proxmox
-  node_name    = "node3"
-  vm_id        = 114
-  started      = true
-  tags         = ["ollama", "llm", "apu"]
-  unprivileged = true
+resource "proxmox_virtual_environment_container" "node3_llama" {
+  provider  = proxmox
+  node_name = "node3"
+  vm_id     = 1001
 
   operating_system {
     template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
     type             = "debian"
   }
 
-  cpu {
-    cores = 4
+  network_interface {
+    name = "eth0"
   }
 
-  memory {
-    dedicated = 8192
+  lifecycle {
+    ignore_changes = all
   }
+}
 
-  disk {
-    datastore_id = "rpool-zvols"
-    size         = 30
+resource "proxmox_virtual_environment_container" "node3_ollama_new" {
+  provider  = proxmox
+  node_name = "node3"
+  vm_id     = 1002
+
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
   }
 
   network_interface {
-    name   = "eth0"
-    bridge = "vmbr0"
+    name = "eth0"
   }
 
-  initialization {
-    hostname = "ollama-apu"
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-    }
-  }
-
-  # AMD APU specific passthrough
-  device_passthrough {
-    path = "/dev/dri/renderD128"
-    uid  = 0
-    gid  = 0
-    mode = "0666"
-  }
-  device_passthrough {
-    path = "/dev/kfd"
-    uid  = 0
-    gid  = 0
-    mode = "0666"
-  }
-
-  # Note: Required inside LXC to actually serve:
-  # curl -fsSL https://ollama.com/install.sh | sh
-  # systemctl edit ollama.service -> Environment="OLLAMA_HOST=0.0.0.0"
-  # ollama pull nomic-embed-text
-}
-
-resource "null_resource" "node3_ollama_idmap" {
-  depends_on = [proxmox_virtual_environment_container.node3_ollama]
-
-  triggers = {
-    vm_id = proxmox_virtual_environment_container.node3_ollama.vm_id
-  }
-
-  connection {
-    type  = "ssh"
-    host  = "node3"
-    user  = "root"
-    agent = true
-  }
-
-  provisioner "remote-exec" {
-    inline = [
-      # Ensure subgid allows root to map GID 44 (video) and 993 (render)
-      "grep -q '^root:44:1$' /etc/subgid || echo 'root:44:1' >> /etc/subgid",
-      "grep -q '^root:993:1$' /etc/subgid || echo 'root:993:1' >> /etc/subgid",
-
-      # Inject LXC idmap configurations into the container's conf file
-      "sed -i '/^lxc.idmap:/d' /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: u 0 100000 65536' >> /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: g 0 100000 44' >> /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: g 44 44 1' >> /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: g 45 100045 948' >> /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: g 993 993 1' >> /etc/pve/lxc/114.conf",
-      "echo 'lxc.idmap: g 994 100994 64542' >> /etc/pve/lxc/114.conf",
-
-      # Chown the passed through devices to match what we expect
-      "chown 100000:44 /dev/dri/card0 || true",
-      "chown 100000:993 /dev/dri/renderD128 || true",
-      "chown 100000:993 /dev/kfd || true",
-
-      # Restart the LXC so the GID mappings take effect
-      "pct stop 114 || true",
-      "pct start 114"
-    ]
+  lifecycle {
+    ignore_changes = all
   }
 }
