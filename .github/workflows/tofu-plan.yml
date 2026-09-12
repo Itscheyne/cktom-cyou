@@ -148,6 +148,13 @@ jobs:
           } > plan_comment.md
           gh pr comment ${{ github.event.pull_request.number }} -F plan_comment.md
 
+      - name: State validation
+        run: |
+          # Validate planned state against expected resource inventory.
+          # Non-blocking: reports failures as warnings, does not fail the CI job.
+          tofu show -json tfplan.binary \
+            2>/dev/null | python3 scripts/test-state.py || true
+
       - name: Cleanup tfvars
         if: always()
         run: rm -f ci.auto.tfvars tfplan.binary plan_output.txt plan_comment.md

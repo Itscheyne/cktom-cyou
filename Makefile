@@ -12,7 +12,7 @@ EXCLUDE := \
 	 \
 	
 
-.PHONY: plan apply plan-all apply-all
+.PHONY: plan apply plan-all apply-all test test-drift test-state
 
 # node3 + node4 only
 plan:
@@ -27,3 +27,17 @@ plan-all:
 
 apply-all:
 	tofu apply
+
+# ── Testing ──────────────────────────────────────────────────────────────────
+
+# Run both tests (drift detection + state validation)
+test: test-drift test-state
+
+# Drift detection: fails if tofu plan shows any changes (exit 2 = drift).
+test-drift:
+	bash scripts/test-drift.sh
+
+# State validation: assert expected resources exist with correct IDs/nodes.
+# Requires live state (remote backend credentials must be available).
+test-state:
+	tofu show -json 2>/dev/null | python3 scripts/test-state.py

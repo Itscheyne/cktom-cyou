@@ -1,0 +1,121 @@
+name: tofu-drift
+
+on:
+  # Daily drift check at 06:00 UTC
+  schedule:
+    - cron: "0 6 * * *"
+  # Manual trigger for on-demand drift checks
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Scope: node34 (default) or all"
+        required: false
+        default: "node34"
+
+# Only one drift check at a time
+concurrency:
+  group: tofu-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: drift detection (node3 + node4)
+    runs-on: ubuntu-latest
+    # Same plan-gate environment as tofu-plan — requires manual approval for secrets
+    environment: plan-gate
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      CLOUDFLARE_R2_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_R2_ACCOUNT_ID }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.9.1"
+
+      - name: Install netbird
+        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
+
+      - name: Join netbird mesh
+        run: |
+          sudo netbird up \
+            --setup-key "$NETBIRD_SETUP_KEY" \
+            --daemon-addr unix:///var/run/netbird.sock
+          for i in $(seq 1 15); do
+            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
+            if [ "$STATUS" -gt 0 ]; then break; fi
+            sleep 2
+          done
+          sudo netbird status
+        env:
+          NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+
+      - name: Write tfvars
+        run: |
+          cat > ci.auto.tfvars <<EOF
+          proxmox_insecure     = true
+          node1_endpoint       = "${NODE1_ENDPOINT}"
+          node1_api_token      = "${NODE1_GHPROD_PLAN_TOKEN}"
+          node3_endpoint       = "${NODE3_ENDPOINT}"
+          node3_api_token      = "${NODE3_GHPROD_PLAN_TOKEN}"
+          node4_endpoint       = "${NODE4_ENDPOINT}"
+          node4_api_token      = "${NODE4_GHPROD_PLAN_TOKEN}"
+          EOF
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE1_GHPROD_PLAN_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE3_GHPROD_PLAN_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+          NODE4_GHPROD_PLAN_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
+
+      - name: tofu init
+        run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+
+      - name: tofu validate
+        run: tofu validate
+
+      - name: Drift detection (node3 + node4)
+        run: |
+          TOFU_PLAN_FLAGS=""
+          # Exclude node3 if unreachable (Netbird may not route to it yet)
+          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
+            echo "::warning::node3 unreachable — excluding module.node3 from drift check"
+            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node3"
+          fi
+          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -z "$NODE4_HOST" ] || ! getent hosts "$NODE4_HOST" >/dev/null 2>&1; then
+            echo "::warning::node4 unreachable — excluding module.node4 from drift check"
+            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node4"
+          fi
+          export TOFU_PLAN_FLAGS
+          bash scripts/test-drift.sh
+        env:
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+
+      - name: State validation
+        run: |
+          # Capture state as JSON, pipe to validator
+          tofu show -json \
+            -exclude=module.node1 \
+            -exclude=helm_release.longhorn \
+            -exclude=kubernetes_namespace_v1.longhorn_system \
+            -exclude=kubernetes_storage_class_v1.longhorn_default \
+            -exclude=proxmox_sdn_vnet.node1 \
+            -exclude=proxmox_virtual_environment_sdn_vnet.node1 \
+            -exclude=proxmox_sdn_zone_simple.internal \
+            -exclude=proxmox_virtual_environment_sdn_zone_simple.internal \
+            2>/dev/null | python3 scripts/test-state.py
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ci.auto.tfvars tfplan.binary
