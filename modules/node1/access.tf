@@ -11,6 +11,9 @@ resource "proxmox_virtual_environment_user" "node1_proxmin" {
     propagate = true
     role_id   = "Administrator"
   }
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "proxmox_virtual_environment_user" "node1_ghprod" {
@@ -22,6 +25,9 @@ resource "proxmox_virtual_environment_user" "node1_ghprod" {
     path      = "/"
     propagate = true
     role_id   = "Administrator"
+  }
+  lifecycle {
+    ignore_changes = all
   }
 }
 
@@ -39,6 +45,9 @@ resource "proxmox_virtual_environment_role" "node1_ai_agent" {
     "SDN.Audit",
     "SDN.Allocate",
   ]
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "proxmox_virtual_environment_user" "node1_agents" {
@@ -50,5 +59,8 @@ resource "proxmox_virtual_environment_user" "node1_agents" {
     path      = "/"
     propagate = true
     role_id   = proxmox_virtual_environment_role.node1_ai_agent.role_id
+  }
+  lifecycle {
+    ignore_changes = all
   }
 }

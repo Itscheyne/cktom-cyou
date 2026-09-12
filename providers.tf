@@ -12,31 +12,31 @@ terraform {
     }
   }
 
-  backend "s3" {
-    bucket                      = "cktom-cyou-iac"
-    key                         = "terraform.tfstate"
-    region                      = "auto"
-    skip_credentials_validation = true
-    skip_metadata_api_check     = true
-    skip_region_validation      = true
-    skip_requesting_account_id  = true
-    skip_s3_checksum            = true
-    use_path_style              = true
-  }
+#   backend "s3" {
+#     bucket                      = "cktom-cyou-iac"
+#     key                         = "terraform.tfstate"
+#     region                      = "auto"
+#     skip_credentials_validation = true
+#     skip_metadata_api_check     = true
+#     skip_region_validation      = true
+#     skip_requesting_account_id  = true
+#     skip_s3_checksum            = true
+#     use_path_style              = true
+#   }
 }
 
-provider "proxmox" {
-  alias     = "node1"
-  endpoint  = var.node1_endpoint
-  api_token = var.node1_api_token != "" ? var.node1_api_token : null
-  username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
-  password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
-  insecure  = var.proxmox_insecure
-
-  ssh {
-    agent = true
-  }
-}
+# provider "proxmox" {
+#   alias     = "node1"
+#   endpoint  = var.node1_endpoint
+#   api_token = var.node1_api_token != "" ? var.node1_api_token : null
+#   username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
+#   password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
+#   insecure  = var.proxmox_insecure
+#
+#   ssh {
+#     agent = true
+#   }
+# }
 
 provider "proxmox" {
   alias     = "node3"
