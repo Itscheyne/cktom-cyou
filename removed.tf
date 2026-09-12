@@ -3,28 +3,16 @@
 
 removed {
   from = proxmox_sdn_zone_simple.internal
-  lifecycle {
-    destroy = false
-  }
 }
 
 removed {
   from = proxmox_sdn_vnet.node1
-  lifecycle {
-    destroy = false
-  }
 }
 
 removed {
   from = proxmox_virtual_environment_sdn_zone_simple.internal
-  lifecycle {
-    destroy = false
-  }
 }
 
 removed {
   from = proxmox_virtual_environment_sdn_vnet.node1
-  lifecycle {
-    destroy = false
-  }
 }

@@ -11,7 +11,7 @@
 
 resource "proxmox_virtual_environment_vm" "node3_nast" {
   provider  = proxmox
-  name      = "nast"
+  name      = "tnast"
   node_name = "node3"
   vm_id     = 400
   started   = false
@@ -431,134 +431,7 @@ resource "proxmox_virtual_environment_vm" "node3_prod3" {
 
 # ── Stopped VMs ──────────────────────────────
 
-resource "proxmox_virtual_environment_vm" "node3_homeassistant_test" {
-  provider  = proxmox
-  name      = "homeassistant-test"
-  node_name = "node3"
-  vm_id     = 10110
-  started   = false # live: stopped (drift-reconciled)
-  tags      = ["dev"]
 
-  bios    = "ovmf"
-  machine = "q35"
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores   = 3
-    sockets = 1
-    type    = "x86-64-v2-AES"
-  }
-
-  memory {
-    dedicated = 2048
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  # scsi0: rpool-zvols:vm-10110-disk-0, 32G
-  disk {
-    interface    = "scsi0"
-    datastore_id = "rpool-zvols"
-    size         = 32
-    iothread     = true
-  }
-
-  # net0: node3 SDN bridge (10.13.0.6 via DHCP)
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:52:E5:BA"
-    model       = "virtio"
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_homeassistant" {
-  provider  = proxmox
-  name      = "homeassistant"
-  node_name = "node3"
-  vm_id     = 110
-  started   = false
-
-  bios    = "ovmf"
-  machine = "q35"
-
-  agent {
-    enabled = true
-  }
-
-  cpu {
-    cores   = 4
-    sockets = 1
-    type    = "x86-64-v3"
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  tpm_state {
-    datastore_id = "rpool-zvols"
-    version      = "v2.0"
-  }
-
-  # scsi0: rpool-zvols:vm-110-disk-0, 128G
-  disk {
-    interface    = "scsi0"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    iothread     = true
-    discard      = "on"
-  }
-
-  # net0: vmbr2 (2.5GbE bridge)
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "BC:24:11:E8:05:22"
-    model       = "virtio"
-  }
-
-  serial_device {}
-
-  # USB passthrough: Bluetooth, serial adapters
-  usb {
-    host = "0a12:0001"
-  }
-  usb {
-    host = "1a86:7523"
-  }
-  usb {
-    host = "10c4:ea60"
-  }
-  usb {
-    host = "8087:0a2a"
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
 
 # ── Templates ────────────────────────────────
 
@@ -773,162 +646,14 @@ resource "proxmox_virtual_environment_vm" "node3_fipa" {
   }
 }
 
-resource "proxmox_virtual_environment_vm" "node3_prod3_1" {
-  provider  = proxmox
-  name      = "prod3-1"
-  node_name = "node3"
-  vm_id     = 801
-  started   = false
 
-  bios    = "ovmf"
-  machine = "q35"
 
-  cpu {
-    cores   = 8
-    sockets = 1
-    type    = "x86-64-v3"
-  }
-
-  memory {
-    dedicated = 10240
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  disk {
-    interface    = "scsi1"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    file_format  = "raw"
-  }
-
-  # net0: node3 SDN bridge
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:C9:98:FF"
-    model       = "virtio"
-  }
-
-  # net1: vmbr2 VLAN 3
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:36:CE:1B"
-    model       = "virtio"
-    mtu         = 1
-    vlan_id     = 3
-  }
-
-  # net2: vmbr2 VLAN 4
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:DD:79:E7"
-    model       = "virtio"
-    mtu         = 1
-    vlan_id     = 4
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_dev3" {
-  provider  = proxmox
-  name      = "dev3"
-  node_name = "node3"
-  vm_id     = 901
-  started   = false
-
-  cpu {
-    cores   = 6
-    sockets = 1
-    type    = "x86-64-v2-AES"
-  }
-
-  memory {
-    dedicated = 6144
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  disk {
-    interface    = "virtio0"
-    datastore_id = "rpool-zvols"
-    size         = 128
-    iothread     = true
-    file_format  = "raw"
-  }
-
-  network_device {
-    bridge      = "vmbr2"
-    mac_address = "D0:99:13:D1:97:7B"
-    model       = "virtio"
-    firewall    = true
-    vlan_id     = 3
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
-
-resource "proxmox_virtual_environment_vm" "node3_prod3_0" {
-  provider  = proxmox
-  name      = "prod3-0"
-  node_name = "node3"
-  vm_id     = 8001
-  started   = false
-
-  cpu {
-    cores   = 6
-    sockets = 1
-    type    = "x86-64-v3" # live: x86-64-v3 (drift-reconciled)
-  }
-
-  memory {
-    dedicated = 8192
-  }
-
-  efi_disk {
-    datastore_id = "rpool"
-    type         = "4m"
-  }
-
-  network_device {
-    bridge      = "node3"
-    mac_address = "D0:99:13:99:51:FC"
-    model       = "virtio"
-    firewall    = true
-  }
-
-  operating_system {
-    type = "l26"
-  }
-
-  lifecycle {
-    ignore_changes = all
-  }
-}
 
 resource "proxmox_virtual_environment_container" "node3_nast" {
   provider  = proxmox
   node_name = "node3"
   vm_id     = 445
-  started   = false # live: stopped (drift-reconciled)
+  started   = true
   tags      = ["infra"]
 
   cpu {
@@ -944,25 +669,12 @@ resource "proxmox_virtual_environment_container" "node3_nast" {
     size         = 20
   }
 
-  mount_point { # live: mp0 datapool0:445/vm-445-disk-0.raw, mp=/data, 4T (live-only, undeclared until now)
-    volume = "datapool0"
-    path   = "/data"
-    size   = "4T"
-  }
-
   network_interface {
     name        = "sf"
     bridge      = "vmbr2"
     firewall    = true
     mac_address = "D0:99:13:EB:54:10"
     vlan_id     = 3
-  }
-
-  network_interface { # live net1: bridge=node3 (live-only, undeclared until now)
-    name        = "node3"
-    bridge      = "node3"
-    firewall    = true
-    mac_address = "D0:99:13:08:60:74"
   }
 
   operating_system {
@@ -975,35 +687,66 @@ resource "proxmox_virtual_environment_container" "node3_nast" {
   }
 }
 
-resource "proxmox_virtual_environment_container" "node3_dir" {
+
+# LXC container for Ollama (Host AMD APU via passthrough)
+
+
+resource "proxmox_virtual_environment_container" "node3_llama0" {
   provider  = proxmox
   node_name = "node3"
-  vm_id     = 10389
-  started   = false # live: stopped (drift-reconciled)
+  vm_id     = 100
 
-  cpu {
-    cores = 2
-  }
-
-  memory {
-    dedicated = 4096
-  }
-
-  disk {
-    datastore_id = "rpool-zvols"
-    size         = 32
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
   }
 
   network_interface {
-    name        = "node3"
-    bridge      = "node3"
-    firewall    = true
-    mac_address = "D0:99:13:4C:1F:C2"
+    name = "eth0"
   }
 
+  lifecycle {
+    ignore_changes = all
+  }
+}
+
+resource "proxmox_virtual_environment_container" "node3_llama" {
+  provider  = proxmox
+  node_name = "node3"
+  vm_id     = 1001
+
   operating_system {
-    template_file_id = "local:vztmpl/placeholder.tar.xz"
-    type             = "fedora"
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
+  }
+
+  mount_point { # live: mp0 datapool0:445/vm-445-disk-0.raw, mp=/data, 4T (live-only, undeclared until now)
+    volume = "datapool0"
+    path   = "/data"
+    size   = "4T"
+  }
+
+  network_interface {
+    name = "eth0"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
+
+resource "proxmox_virtual_environment_container" "node3_ollama_new" {
+  provider  = proxmox
+  node_name = "node3"
+  vm_id     = 1002
+
+  operating_system {
+    template_file_id = "local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst"
+    type             = "debian"
+  }
+
+  network_interface {
+    name = "eth0"
   }
 
   lifecycle {

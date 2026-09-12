@@ -17,6 +17,7 @@ jobs:
   plan:
     name: tofu validate plan
     runs-on: ubuntu-latest
+    environment: plan-gate
     # Only run on internal PRs to protect secrets
     if: github.event.pull_request.head.repo.full_name == github.repository
     # No environment gate for plan: we want the PR to automatically generate
