@@ -17,6 +17,7 @@ jobs:
   plan:
     name: tofu validate plan
     runs-on: ubuntu-latest
+    environment: plan-gate
     # Only run on internal PRs to protect secrets
     if: github.event.pull_request.head.repo.full_name == github.repository
     # No environment gate for plan: we want the PR to automatically generate
@@ -120,42 +121,32 @@ jobs:
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
-      - name: Export plan to JSON
-        run: tofu show -json tfplan.binary > tfplan.json
-
-      - name: Generate Plan Summary
-        run: cat tfplan.json | python3 scripts/tofu_plan_summary.py > summary.md
-
-      - name: Trigger Agent Review via Webhook
-        id: review
-        env:
-          HERMES_WEBHOOK_URL: ${{ secrets.HERMES_WEBHOOK_URL }}
-          HERMES_WEBHOOK_SECRET: ${{ secrets.HERMES_WEBHOOK_SECRET }}
+      - name: Show plan summary
         run: |
-          cat << 'END_EOF' > pr_body.txt
-          ${{ github.event.pull_request.body }}
-          END_EOF
-          
-          if [ -n "$HERMES_WEBHOOK_URL" ]; then
-            python3 scripts/plan_reviewer.py \
-              --plan-json tfplan.json \
-              --prompt-file pr_body.txt \
-              --pr-number "${{ github.event.pull_request.number }}" \
-              --repo "${{ github.repository }}" > review_output.md || echo "Webhook trigger failed"
-          else
-            echo "Skipping agent webhook trigger (secret missing)." > review_output.md
-          fi
+          tofu show -no-color tfplan.binary > plan_output.txt
+          echo "### OpenTofu Plan Result (PR)" >> $GITHUB_STEP_SUMMARY
+          echo "<details><summary>Show Plan</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```terraform' >> $GITHUB_STEP_SUMMARY
+          tail -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
 
-      - name: Post Comment to PR
+      - name: Post plan to PR
+        if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cat summary.md > pr_comment.md
-          echo "" >> pr_comment.md
-          echo "### 🤖 AI Agent Trigger" >> pr_comment.md
-          cat review_output.md >> pr_comment.md
-          
-          gh pr comment ${{ github.event.pull_request.number }} --body-file pr_comment.md || echo "Failed to post PR comment, maybe not a PR context?"
+          {
+            echo "## OpenTofu Plan Result"
+            echo "<details><summary>Show Plan</summary>"
+            echo ""
+            echo '```terraform'
+            tail -c 60000 plan_output.txt
+            echo '```'
+            echo "</details>"
+          } > plan_comment.md
+          gh pr comment ${{ github.event.pull_request.number }} -F plan_comment.md
 
       - name: State validation
         run: |
@@ -166,4 +157,4 @@ jobs:
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary tfplan.json summary.md review_output.md pr_comment.md pr_body.txt
+        run: rm -f ci.auto.tfvars tfplan.binary plan_output.txt plan_comment.md
