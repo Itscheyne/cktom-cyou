@@ -13,7 +13,8 @@ jobs:
   plan:
     name: tofu plan preview
     runs-on: ubuntu-latest
-    # No environment gate here — plan only reads state, uses plan tokens.
+    # plan-gate provides NODE*_GHPROD_PLAN_TOKEN secrets needed for provider auth
+    environment: plan-gate
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
