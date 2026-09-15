@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+permissions:
+  contents: read
+  packages: read
+
 # Serialize all applies so no two applies run concurrently against the same state.
 concurrency:
   group: tofu-apply
@@ -16,6 +20,13 @@ jobs:
     # plan-gate provides NODE*_GHPROD_PLAN_TOKEN secrets needed for provider auth
     environment: plan-gate
 
+    container:
+      image: ghcr.io/itscheyne/cktom-cyou/tofu-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --cap-add=NET_ADMIN --device=/dev/net/tun
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
@@ -25,16 +36,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: "1.9.1"
-
-      - name: Install netbird
-        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-
       - name: Join netbird mesh
         run: |
+          sudo netbird service start || true
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
@@ -138,6 +142,13 @@ jobs:
     # approves the apply-gate deployment to proceed with this job.
     environment: apply-gate
 
+    container:
+      image: ghcr.io/itscheyne/cktom-cyou/tofu-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --cap-add=NET_ADMIN --device=/dev/net/tun
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
@@ -147,21 +158,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: "1.9.1"
-
       - name: Download tfplan artifact
         uses: actions/download-artifact@v4
         with:
           name: tfplan
 
-      - name: Install netbird
-        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-
       - name: Join netbird mesh
         run: |
+          sudo netbird service start || true
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
