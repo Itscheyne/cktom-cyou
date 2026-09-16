@@ -1,22 +1,37 @@
 [Unit]
 Description=Open Viking Server
 After=network-online.target
+Wants=network-online.target
+
+[Service]
+Restart=always
 
 [Container]
-Image=docker.io/openviking/openviking:latest
+# Official image per docs.openviking.ai (NOT docker.io/openviking/openviking)
+Image=ghcr.io/volcengine/openviking:latest
 ContainerName=openviking
+AutoUpdate=registry
+Pull=newer
 Network=internal.network
 # Map to internal Traefik network
 NetworkAlias=openviking
 
-Volume=/var/opt/openviking/data:/app/.openviking
+# Single mount: ov.conf, RAGFS workspace, and VectorDB (memory state) all
+# live under /app/.openviking per upstream convention.
+Volume=/var/opt/openviking/data:/app/.openviking:Z
 
-# Traefik labels for web dashboard
+# Traefik labels — proxies the REST API, MCP, and the Web Studio UI
+# (served at /studio on the same port 1933), so a single router+service
+# covers all of it. Follows the same convention as the other prod3 quadlets.
 Label=traefik.enable=true
-Label=traefik.http.routers.openviking.rule=Host(`openviking.sf.cktom.cyou`)
-Label=traefik.http.routers.openviking.entrypoints=websecure
-Label=traefik.http.routers.openviking.tls.certresolver=letsencrypt
+Label=traefik.http.routers.openviking.entrypoints=entryPoint443
+Label=traefik.http.routers.openviking.rule=Host(`openviking.prod3.cktom.cyou`)
+Label=traefik.http.routers.openviking.tls=true
+Label=traefik.http.routers.openviking.tls.domains[0].main=prod3.cktom.cyou
+Label=traefik.http.routers.openviking.tls.domains[0].sans=*.prod3.cktom.cyou
+Label=traefik.http.routers.openviking.service=openviking
 Label=traefik.http.services.openviking.loadbalancer.server.port=1933
+# Web Studio UI reachable at https://openviking.prod3.cktom.cyou/studio
 
 [Install]
 WantedBy=default.target
