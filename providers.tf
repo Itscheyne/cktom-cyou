@@ -25,18 +25,18 @@ terraform {
   }
 }
 
-provider "proxmox" {
-  alias     = "node1"
-  endpoint  = var.node1_endpoint
-  api_token = var.node1_api_token != "" ? var.node1_api_token : null
-  username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
-  password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
-  insecure  = var.proxmox_insecure
-
-  ssh {
-    agent = true
-  }
-}
+# provider "proxmox" {
+#   alias     = "node1"
+#   endpoint  = var.node1_endpoint
+#   api_token = var.node1_api_token != "" ? var.node1_api_token : null
+#   username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
+#   password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
+#   insecure  = var.proxmox_insecure
+#
+#   ssh {
+#     agent = true
+#   }
+# }
 
 provider "proxmox" {
   alias     = "node3"
