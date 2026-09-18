@@ -25,18 +25,17 @@ terraform {
   }
 }
 
-# provider "proxmox" {
-#   alias     = "node1"
-#   endpoint  = var.node1_endpoint
-#   api_token = var.node1_api_token != "" ? var.node1_api_token : null
-#   username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
-#   password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
-#   insecure  = var.proxmox_insecure
-#
-#   ssh {
-#     agent = true
-#   }
-# }
+provider "proxmox" {
+  alias     = "node1"
+  endpoint  = var.node1_endpoint
+  # Fallback to a syntactically valid dummy token to bypass configuration crash when node1 is offline/excluded
+  api_token = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_api_token : "root@pam!dummy=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  insecure  = var.proxmox_insecure
+
+  ssh {
+    agent = true
+  }
+}
 
 provider "proxmox" {
   alias     = "node3"
