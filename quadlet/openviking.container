@@ -1,22 +1,29 @@
+#! ./openviking.container
+
 [Unit]
 Description=Open Viking Server
 After=network-online.target
 
 [Container]
-Image=docker.io/openviking/openviking:latest
-ContainerName=openviking
+Image= ghcr.io/volcengine/openviking:latest
 Network=internal.network
-# Map to internal Traefik network
-NetworkAlias=openviking
-
-Volume=/var/opt/openviking/data:/app/.openviking
-
-# Traefik labels for web dashboard
+ContainerName=openviking
+Volume=openviking-data:/app/.openviking
 Label=traefik.enable=true
-Label=traefik.http.routers.openviking.rule=Host(`openviking.sf.cktom.cyou`)
-Label=traefik.http.routers.openviking.entrypoints=websecure
-Label=traefik.http.routers.openviking.tls.certresolver=letsencrypt
+Label=traefik.http.routers.openviking.rule=Host(`openviking.prod.sf.cktom.cyou`)
+Label=traefik.http.routers.openviking.entrypoints=port443
+Label=traefik.http.routers.openviking.tls=true
 Label=traefik.http.services.openviking.loadbalancer.server.port=1933
+
+HealthCmd=curl http://localhost:1933/health
+HealthInterval=60s
+HealthRetries=3
+HealthTimeout=10s
+HealthStartPeriod=60s
+
+[Service]
+TimeoutStartSec=300
+Restart=on-abnormal
 
 [Install]
 WantedBy=default.target
