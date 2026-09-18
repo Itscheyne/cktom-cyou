@@ -1,0 +1,4 @@
+# Persistent Redis data
+[Volume]
+Label=omniroute
+VolumeName=omniroute-redis

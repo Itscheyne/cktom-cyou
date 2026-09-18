@@ -1,0 +1,51 @@
+[Unit]
+Description=Nextcloud Container
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=docker.io/library/nextcloud:latest
+ContainerName=nextcloud
+
+# --- Environment Variables ---
+# Required when running Nextcloud behind a reverse proxy (Traefik)
+Environment=NEXTCLOUD_TRUSTED_DOMAINS=nextcloud.prod.sf.cktom.cyou
+Environment=OVERWRITEPROTOCOL=https
+
+# (Optional but Recommended) Use an environment file for database credentials
+# EnvironmentFile=%h/.config/nextcloud/nextcloud.env
+
+# --- Storage ---
+# Creates a named podman volume for persistent data
+Volume=nextcloud-data:/var/www/html
+
+# --- Networking ---
+# Must be the same Podman network your Traefik container is attached to
+Network=internal.network
+
+# --- Traefik Labels ---
+Label=traefik.enable=true
+
+# Routing & TLS
+Label=traefik.http.routers.nextcloud.rule=Host(`nextcloud.prod.sf.cktom.cyou`)
+Label=traefik.http.routers.nextcloud.entrypoints=port443
+Label=traefik.http.routers.nextcloud.tls=true
+
+# The Nextcloud Apache image listens on port 80 internally
+Label=traefik.http.services.nextcloud.loadbalancer.server.port=80
+
+# Nextcloud Middlewares: CalDAV/CardDAV discovery redirects
+Label=traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav
+Label=traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/
+
+# Nextcloud Middlewares: Strict Transport Security (HSTS)
+Label=traefik.http.middlewares.nextcloud-hsts.headers.stsSeconds=15552000
+Label=traefik.http.middlewares.nextcloud-hsts.headers.stsIncludeSubdomains=true
+Label=traefik.http.middlewares.nextcloud-hsts.headers.stsPreload=true
+
+# Apply the middlewares to the router
+Label=traefik.http.routers.nextcloud.middlewares=nextcloud-dav,nextcloud-hsts
+
+[Install]
+# Use default.target for rootless (user) containers, or multi-user.target for root/system containers
+WantedBy=multi-user.target
