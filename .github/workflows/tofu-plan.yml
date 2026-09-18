@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  packages: read
 
 # Prevent concurrent plan runs on the same PR
 concurrency:
@@ -23,6 +24,13 @@ jobs:
     # No environment gate for plan: we want the PR to automatically generate
     # the plan so the agent and human can review it before merging.
 
+    container:
+      image: ghcr.io/itscheyne/cktom-cyou/tofu-ci:latest
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      options: --cap-add=NET_ADMIN --device=/dev/net/tun
+
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
@@ -37,16 +45,9 @@ jobs:
           # don't take effect until merged.
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: "1.9.1"
-
-      - name: Install netbird
-        run: curl -fsSL https://pkgs.netbird.io/install.sh | sh
-
       - name: Join netbird mesh
         run: |
+          sudo netbird service start || true
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
@@ -146,7 +147,12 @@ jobs:
             echo '```'
             echo "</details>"
           } > plan_comment.md
-          gh pr comment ${{ github.event.pull_request.number }} -F plan_comment.md
+          jq -Rs '{body: .}' plan_comment.md > plan_comment.json
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            -d @plan_comment.json
 
       - name: State validation
         run: |
@@ -157,4 +163,4 @@ jobs:
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars tfplan.binary plan_output.txt plan_comment.md
+        run: rm -f ci.auto.tfvars tfplan.binary plan_output.txt plan_comment.md plan_comment.json
