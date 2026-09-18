@@ -108,16 +108,9 @@ jobs:
 
       - name: State validation
         run: |
-          # Capture state as JSON, pipe to validator
-          tofu show -json \
-            -exclude=module.node1 \
-            -exclude=helm_release.longhorn \
-            -exclude=kubernetes_namespace_v1.longhorn_system \
-            -exclude=kubernetes_storage_class_v1.longhorn_default \
-            -exclude=proxmox_sdn_vnet.node1 \
-            -exclude=proxmox_virtual_environment_sdn_vnet.node1 \
-            -exclude=proxmox_sdn_zone_simple.internal \
-            -exclude=proxmox_virtual_environment_sdn_zone_simple.internal \
+          # tofu show does not support -exclude (plan-only flag); validate
+          # against the plan file produced by test-drift.sh instead.
+          tofu show -json tfplan.binary \
             2>/dev/null | python3 scripts/test-state.py
 
       - name: Cleanup
