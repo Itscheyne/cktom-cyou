@@ -27,9 +27,9 @@ terraform {
 
 provider "proxmox" {
   alias     = "node1"
-  endpoint  = var.node1_endpoint
-  # Fallback to a syntactically valid dummy token to bypass configuration crash when node1 is offline/excluded
-  api_token = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_api_token : "root@pam!dummy=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+  # Fallback to node3 endpoint and token if node1 token is invalid/offline
+  endpoint  = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_endpoint : var.node3_endpoint
+  api_token = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_api_token : var.node3_api_token
   insecure  = var.proxmox_insecure
 
   ssh {
