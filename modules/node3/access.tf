@@ -6,11 +6,17 @@ resource "proxmox_virtual_environment_user" "node3_proxmin" {
   user_id  = "proxmin@pve"
   comment  = "Break-glass admin account for AI troubleshooting"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = "Administrator"
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node3_proxmin" {
+  provider = proxmox
+  user_id  = "proxmin@pve"
+  path      = "/"
+  propagate = true
+  role_id   = "Administrator"
   lifecycle {
     ignore_changes = all
   }
@@ -21,11 +27,17 @@ resource "proxmox_virtual_environment_user" "node3_ghprod" {
   user_id  = "ghprod@pve"
   comment  = "GitHub Actions CI/CD user for tofu plan and apply"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = "Administrator"
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node3_ghprod" {
+  provider = proxmox
+  user_id  = "ghprod@pve"
+  path      = "/"
+  propagate = true
+  role_id   = "Administrator"
   lifecycle {
     ignore_changes = all
   }
@@ -55,11 +67,17 @@ resource "proxmox_virtual_environment_user" "node3_agents" {
   user_id  = "agents@pve"
   comment  = "Read-only user for AI agent GitOps tofu plan context"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = proxmox_virtual_environment_role.node3_ai_agent.role_id
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node3_agents" {
+  provider = proxmox
+  user_id  = "agents@pve"
+  path      = "/"
+  propagate = true
+  role_id   = proxmox_virtual_environment_role.node3_ai_agent.role_id
   lifecycle {
     ignore_changes = all
   }
