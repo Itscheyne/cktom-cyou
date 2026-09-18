@@ -12,31 +12,30 @@ terraform {
     }
   }
 
-#   backend "s3" {
-#     bucket                      = "cktom-cyou-iac"
-#     key                         = "terraform.tfstate"
-#     region                      = "auto"
-#     skip_credentials_validation = true
-#     skip_metadata_api_check     = true
-#     skip_region_validation      = true
-#     skip_requesting_account_id  = true
-#     skip_s3_checksum            = true
-#     use_path_style              = true
-#   }
+  backend "s3" {
+    bucket                      = "cktom-cyou-iac"
+    key                         = "terraform.tfstate"
+    region                      = "auto"
+    skip_credentials_validation = true
+    skip_metadata_api_check     = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_s3_checksum            = true
+    use_path_style              = true
+  }
 }
 
-# provider "proxmox" {
-#   alias     = "node1"
-#   endpoint  = var.node1_endpoint
-#   api_token = var.node1_api_token != "" ? var.node1_api_token : null
-#   username  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_username
-#   password  = var.node1_api_token != null && var.node1_api_token != "" ? null : var.node1_password
-#   insecure  = var.proxmox_insecure
-#
-#   ssh {
-#     agent = true
-#   }
-# }
+provider "proxmox" {
+  alias     = "node1"
+  # Fallback to node3 endpoint and token if node1 token is invalid/offline
+  endpoint  = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_endpoint : var.node3_endpoint
+  api_token = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_api_token : var.node3_api_token
+  insecure  = var.proxmox_insecure
+
+  ssh {
+    agent = true
+  }
+}
 
 provider "proxmox" {
   alias     = "node3"
