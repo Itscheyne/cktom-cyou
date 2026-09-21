@@ -6,11 +6,17 @@ resource "proxmox_virtual_environment_user" "node4_proxmin" {
   user_id  = "proxmin@pve"
   comment  = "Break-glass admin account for AI troubleshooting"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = "Administrator"
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node4_proxmin" {
+  provider = proxmox
+  user_id  = "proxmin@pve"
+  path      = "/"
+  propagate = true
+  role_id   = "Administrator"
   lifecycle {
     ignore_changes = all
   }
@@ -21,11 +27,17 @@ resource "proxmox_virtual_environment_user" "node4_ghprod" {
   user_id  = "ghprod@pve"
   comment  = "GitHub Actions CI/CD user for tofu plan and apply"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = "Administrator"
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node4_ghprod" {
+  provider = proxmox
+  user_id  = "ghprod@pve"
+  path      = "/"
+  propagate = true
+  role_id   = "Administrator"
   lifecycle {
     ignore_changes = all
   }
@@ -55,11 +67,17 @@ resource "proxmox_virtual_environment_user" "node4_agents" {
   user_id  = "agents@pve"
   comment  = "Read-only user for AI agent GitOps tofu plan context"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
+  lifecycle {
+    ignore_changes = all
   }
+}
+
+resource "proxmox_acl" "node4_agents" {
+  provider = proxmox
+  user_id  = "agents@pve"
+  path      = "/"
+  propagate = true
+  role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
   lifecycle {
     ignore_changes = all
   }
@@ -70,9 +88,15 @@ resource "proxmox_virtual_environment_user" "node4_hermes" {
   user_id  = "hermes@pve"
   comment  = "Provisioned for AI agent audit access dynamically"
 
-  acl {
-    path      = "/"
-    propagate = true
-    role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
+}
+
+resource "proxmox_acl" "node4_hermes" {
+  provider = proxmox
+  user_id  = "hermes@pve"
+  path      = "/"
+  propagate = true
+  role_id   = proxmox_virtual_environment_role.node4_ai_agent.role_id
+  lifecycle {
+    ignore_changes = all
   }
 }

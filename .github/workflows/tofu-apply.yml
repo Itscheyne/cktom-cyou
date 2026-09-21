@@ -69,6 +69,11 @@ jobs:
               echo "$token"
             fi
           }
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable on port 8006, invalidating token to force node3 fallback"
+            NODE1_API_TOKEN="invalid-offline"
+          fi
           T1=$(format_token "${NODE1_API_TOKEN}" "plan")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "plan")
@@ -196,6 +201,11 @@ jobs:
               echo "$token"
             fi
           }
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable on port 8006, invalidating token to force node3 fallback"
+            NODE1_API_TOKEN="invalid-offline"
+          fi
           T1=$(format_token "${NODE1_API_TOKEN}" "apply")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "apply")
