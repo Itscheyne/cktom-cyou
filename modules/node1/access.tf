@@ -12,8 +12,8 @@ resource "proxmox_virtual_environment_user" "node1_proxmin" {
 }
 
 resource "proxmox_acl" "node1_proxmin" {
-  provider = proxmox
-  user_id  = "proxmin@pve"
+  provider  = proxmox
+  user_id   = "proxmin@pve"
   path      = "/"
   propagate = true
   role_id   = "Administrator"
@@ -33,8 +33,8 @@ resource "proxmox_virtual_environment_user" "node1_ghprod" {
 }
 
 resource "proxmox_acl" "node1_ghprod" {
-  provider = proxmox
-  user_id  = "ghprod@pve"
+  provider  = proxmox
+  user_id   = "ghprod@pve"
   path      = "/"
   propagate = true
   role_id   = "Administrator"
@@ -73,8 +73,8 @@ resource "proxmox_virtual_environment_user" "node1_agents" {
 }
 
 resource "proxmox_acl" "node1_agents" {
-  provider = proxmox
-  user_id  = "agents@pve"
+  provider  = proxmox
+  user_id   = "agents@pve"
   path      = "/"
   propagate = true
   role_id   = proxmox_virtual_environment_role.node1_ai_agent.role_id

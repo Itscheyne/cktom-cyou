@@ -607,6 +607,13 @@ resource "proxmox_virtual_environment_vm" "node3_dev" {
   }
 }
 
+# NOTE: drift reconciliation (tofu-drift run 35504768322) found vm_id 389 on
+# node3 live as an LXC container (pct list), not a QEMU VM. This resource is
+# declared as proxmox_virtual_environment_vm and cannot be imported against
+# that live object — id "qemu/389" is the wrong resource kind. Needs a human
+# decision (convert to proxmox_virtual_environment_container, or confirm the
+# live container should be recreated as a VM). Left as a known "will be
+# created" plan entry, not imported.
 resource "proxmox_virtual_environment_vm" "node3_fipa" {
   provider  = proxmox
   name      = "fipa"
