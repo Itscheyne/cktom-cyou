@@ -6,6 +6,7 @@ locals {
     "13ft.container"                = "13ft.service"
     "activepieces.container"        = "activepieces.service"
     "certwarden.container"          = "certwarden.service"
+    "cloudflared.container"         = "cloudflared.service"
     "docker-socket-proxy.container" = "docker-socket-proxy.service"
     "internal.network"              = "internal-network.service"
     "netdata.container"             = "netdata.service"
