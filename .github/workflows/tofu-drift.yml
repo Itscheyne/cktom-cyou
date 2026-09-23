@@ -89,17 +89,15 @@ jobs:
       - name: Drift detection (node3 + node4)
         run: |
           TOFU_PLAN_FLAGS=""
-          # Exclude node3 if unreachable (Netbird may not route to it yet)
-          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
-            echo "::warning::node3 unreachable — excluding module.node3 from drift check"
-            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node3"
-          fi
-          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if ! nc -z -w 3 "$NODE4_HOST" 8006 >/dev/null 2>&1; then
-            echo "::warning::node4 unreachable — excluding module.node4 from drift check"
-            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node4"
-          fi
+          for NODE_ID in 3 4; do
+            ENDPOINT_VAR="NODE${NODE_ID}_ENDPOINT"
+            ENDPOINT="${!ENDPOINT_VAR}"
+            NODE_HOST=$(echo "${ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+            if ! nc -z -w 3 "$NODE_HOST" 8006 >/dev/null 2>&1; then
+              echo "::warning::node${NODE_ID} unreachable — excluding module.node${NODE_ID} from drift check"
+              TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node${NODE_ID}"
+            fi
+          done
           export TOFU_PLAN_FLAGS
           bash scripts/test-drift.sh
         env:
