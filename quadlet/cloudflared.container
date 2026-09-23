@@ -1,0 +1,52 @@
+# Cloudflared Quadlet Container Definition
+#
+# Deployment Instructions:
+# 1. Place this file in your systemd containers directory:
+#    - Rootless (User): ~/.config/containers/systemd/cloudflared.container
+#    - System-wide (Root): /etc/containers/systemd/cloudflared.container
+#
+# 2. Configure authentication:
+#    Create an environment file (e.g., ~/.config/cloudflared/tunnel.env for rootless
+#    or /etc/cloudflared/tunnel.env for root) containing your tunnel token:
+#      TUNNEL_TOKEN=your_cloudflare_tunnel_token
+#    Ensure the `EnvironmentFile` directive below points to this file.
+#
+# 3. Reload systemd units:
+#    - Rootless (User): systemctl --user daemon-reload
+#    - System-wide (Root): systemctl daemon-reload
+#
+# 4. Start and enable the tunnel service:
+#    - Rootless (User): systemctl --user enable --now cloudflared
+#    - System-wide (Root): systemctl enable --now cloudflared
+
+[Unit]
+Description=Cloudflare Tunnel Container (cloudflared)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+ContainerName=cloudflared
+Image=docker.io/cloudflare/cloudflared:latest
+AutoUpdate=registry
+Pull=newer
+
+# Run the tunnel without auto-update since podman auto-update handles image updates
+Exec=tunnel --no-autoupdate run
+
+# Authentication via EnvironmentFile (Recommended)
+# For rootless, use %h to resolve to the user's home directory
+EnvironmentFile=-%h/.config/cloudflared/tunnel.env
+# Or for system-wide, use an absolute path like:
+# EnvironmentFile=/etc/cloudflared/tunnel.env
+
+# Alternatively, the token can be set directly (less secure):
+# Environment=TUNNEL_TOKEN=your_token_here
+
+[Service]
+Restart=always
+RestartSec=10
+TimeoutStartSec=90
+
+[Install]
+# default.target for user services, multi-user.target for system services
+WantedBy=default.target multi-user.target
