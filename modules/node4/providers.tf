@@ -8,5 +8,9 @@ terraform {
       version               = ">= 0.78.0"
       configuration_aliases = [proxmox]
     }
+    talos = {
+      source  = "siderolabs/talos"
+      version = ">= 0.7.0"
+    }
   }
 }
