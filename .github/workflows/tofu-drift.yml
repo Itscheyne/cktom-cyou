@@ -87,6 +87,7 @@ jobs:
         run: tofu validate
 
       - name: Drift detection (node3 + node4)
+        shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
           # Exclude node3 if unreachable (Netbird may not route to it yet)

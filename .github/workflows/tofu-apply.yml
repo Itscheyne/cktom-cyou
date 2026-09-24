@@ -92,6 +92,7 @@ jobs:
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
 
       - name: tofu plan
+        shell: bash
         run: |
           PLAN_FLAGS="-input=false -out=tfplan.binary"
           NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')

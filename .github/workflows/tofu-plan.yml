@@ -104,6 +104,7 @@ jobs:
         run: tofu validate
 
       - name: tofu plan
+        shell: bash
         run: |
           PLAN_FLAGS="-input=false -out=tfplan.binary"
           NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
