@@ -87,6 +87,7 @@ jobs:
         run: tofu validate
 
       - name: Drift detection (node3 + node4)
+        shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
           for NODE_ID in 3 4; do
