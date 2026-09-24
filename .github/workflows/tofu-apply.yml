@@ -69,6 +69,11 @@ jobs:
               echo "$token"
             fi
           }
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable on port 8006, invalidating token to force node3 fallback"
+            NODE1_API_TOKEN="invalid-offline"
+          fi
           T1=$(format_token "${NODE1_API_TOKEN}" "plan")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "plan")
@@ -90,18 +95,21 @@ jobs:
         shell: bash
         run: |
           PLAN_FLAGS="-input=false -out=tfplan.binary"
-          for NODE_ID in 1 3 4; do
-            ENDPOINT_VAR="NODE${NODE_ID}_ENDPOINT"
-            ENDPOINT="${!ENDPOINT_VAR}"
-            NODE_HOST=$(echo "${ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-            if ! nc -z -w 3 "$NODE_HOST" 8006 >/dev/null 2>&1; then
-              echo "node${NODE_ID} host ($NODE_HOST) unreachable/offline; excluding module.node${NODE_ID}"
-              PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node${NODE_ID}"
-              if [ "$NODE_ID" = "1" ]; then
-                PLAN_FLAGS="$PLAN_FLAGS -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
-              fi
-            fi
-          done
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable/offline on port 8006; excluding node1 resources"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+          fi
+          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
+            echo "node3 host ($NODE3_HOST) unreachable/offline on port 8006; excluding module.node3"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node3"
+          fi
+          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE4_HOST" 8006 >/dev/null 2>&1; then
+            echo "node4 host ($NODE4_HOST) unreachable/offline on port 8006; excluding module.node4"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node4"
+          fi
           tofu plan $PLAN_FLAGS
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
@@ -194,6 +202,11 @@ jobs:
               echo "$token"
             fi
           }
+          NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
+            echo "node1 host ($NODE1_HOST) unreachable on port 8006, invalidating token to force node3 fallback"
+            NODE1_API_TOKEN="invalid-offline"
+          fi
           T1=$(format_token "${NODE1_API_TOKEN}" "apply")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "apply")

@@ -90,15 +90,17 @@ jobs:
         shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
-          for NODE_ID in 3 4; do
-            ENDPOINT_VAR="NODE${NODE_ID}_ENDPOINT"
-            ENDPOINT="${!ENDPOINT_VAR}"
-            NODE_HOST=$(echo "${ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-            if ! nc -z -w 3 "$NODE_HOST" 8006 >/dev/null 2>&1; then
-              echo "::warning::node${NODE_ID} unreachable — excluding module.node${NODE_ID} from drift check"
-              TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node${NODE_ID}"
-            fi
-          done
+          # Exclude node3 if unreachable (Netbird may not route to it yet)
+          NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
+            echo "::warning::node3 unreachable on port 8006 — excluding module.node3 from drift check"
+            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node3"
+          fi
+          NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE4_HOST" 8006 >/dev/null 2>&1; then
+            echo "::warning::node4 unreachable on port 8006 — excluding module.node4 from drift check"
+            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node4"
+          fi
           export TOFU_PLAN_FLAGS
           bash scripts/test-drift.sh
         env:
@@ -107,16 +109,9 @@ jobs:
 
       - name: State validation
         run: |
-          # Capture state as JSON, pipe to validator
-          tofu show -json \
-            -exclude=module.node1 \
-            -exclude=helm_release.longhorn \
-            -exclude=kubernetes_namespace_v1.longhorn_system \
-            -exclude=kubernetes_storage_class_v1.longhorn_default \
-            -exclude=proxmox_sdn_vnet.node1 \
-            -exclude=proxmox_virtual_environment_sdn_vnet.node1 \
-            -exclude=proxmox_sdn_zone_simple.internal \
-            -exclude=proxmox_virtual_environment_sdn_zone_simple.internal \
+          # tofu show does not support -exclude (plan-only flag); validate
+          # against the plan file produced by test-drift.sh instead.
+          tofu show -json tfplan.binary \
             2>/dev/null | python3 scripts/test-state.py
 
       - name: Cleanup

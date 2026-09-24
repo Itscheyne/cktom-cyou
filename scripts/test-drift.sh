@@ -55,7 +55,8 @@ case $PLAN_EXIT in
   0)
     echo ""
     echo "PASS: No changes detected. State matches live cluster."
-    rm -f tfplan.binary
+    # Keep tfplan.binary — the caller's "State validation" step needs it
+    # (tofu show -json tfplan.binary) and cleans it up itself.
     exit 0
     ;;
   2)
