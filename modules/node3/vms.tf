@@ -348,7 +348,7 @@ resource "proxmox_virtual_environment_vm" "node3_prod3" {
     dedicated = 10240
   }
 
-  # Cloud-init configuration
+
   initialization {
     user_account {
       username = "prodmin"
@@ -365,22 +365,7 @@ resource "proxmox_virtual_environment_vm" "node3_prod3" {
         address = "dhcp"
       }
     }
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-      ipv6 {
-        address = "dhcp"
-      }
-    }
-    ip_config {
-      ipv4 {
-        address = "dhcp"
-      }
-      ipv6 {
-        address = "dhcp"
-      }
-    }
+    vendor_data_file_id = var.prod3_vendor_data_file_id
   }
 
   # scsi1: rpool-zvols:vm-800-disk-0, 128G (note: scsi1, not scsi0)

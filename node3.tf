@@ -7,6 +7,7 @@ module "node3" {
 
   providers = {
     proxmox = proxmox.node3
+
   }
 }
 
