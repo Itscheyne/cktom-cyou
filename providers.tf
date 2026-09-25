@@ -32,9 +32,6 @@ provider "proxmox" {
   api_token = try(length(regexall("^[A-Za-z0-9_]+@[A-Za-z0-9_]+![A-Za-z0-9_]+=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.node1_api_token)) > 0, false) ? var.node1_api_token : var.node3_api_token
   insecure  = var.proxmox_insecure
 
-  ssh {
-    agent = true
-  }
 }
 
 provider "proxmox" {
@@ -45,9 +42,6 @@ provider "proxmox" {
   password  = var.node3_api_token != null && var.node3_api_token != "" ? null : var.node3_password
   insecure  = var.proxmox_insecure
 
-  ssh {
-    agent = true
-  }
 }
 
 provider "proxmox" {
@@ -58,7 +52,4 @@ provider "proxmox" {
   password  = var.node4_api_token != null && var.node4_api_token != "" ? null : var.node4_password
   insecure  = var.proxmox_insecure
 
-  ssh {
-    agent = true
-  }
 }
