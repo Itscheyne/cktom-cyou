@@ -31,9 +31,9 @@ resource "proxmox_virtual_environment_vm" "node3_talos_node" {
   provider  = proxmox
   name      = "talos-node3-k8s"
   node_name = "node3"
-  vm_id     = 810   # Ensure this VM ID is free
+  vm_id     = 810 # Ensure this VM ID is free
   started   = true
-  tags      = ["talos", "worker"]
+  tags      = ["talos", "controlplane"]
 
   agent {
     enabled = true
@@ -69,7 +69,7 @@ resource "proxmox_virtual_environment_vm" "node3_talos_node" {
 
   network_device {
     bridge      = "vmbr0"
-    mac_address = "BC:24:11:A3:33:01" 
+    mac_address = "BC:24:11:A3:33:01"
     model       = "virtio"
     firewall    = true
   }
@@ -95,4 +95,9 @@ resource "proxmox_virtual_environment_vm" "node3_talos_node" {
 
 output "talos_node3_ips" {
   value = proxmox_virtual_environment_vm.node3_talos_node.ipv4_addresses
+}
+
+output "node3_talos_installer_image" {
+  description = "Talos installer image ref matching this node's factory schematic + version"
+  value       = "factory.talos.dev/installer/${talos_image_factory_schematic.this.id}:${var.talos_version}"
 }
