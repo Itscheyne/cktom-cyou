@@ -20,7 +20,7 @@ resource "proxmox_download_file" "talos_iso_node4" {
   provider     = proxmox
   node_name    = "node4"
   content_type = "iso"
-  datastore_id = "local" 
+  datastore_id = "local"
 
   url       = "https://factory.talos.dev/image/${talos_image_factory_schematic.this.id}/${var.talos_version}/nocloud-amd64.iso"
   file_name = "talos-${var.talos_version}-qemuga.iso"
@@ -95,4 +95,9 @@ resource "proxmox_virtual_environment_vm" "node4_talos_node" {
 
 output "talos_node4_ips" {
   value = proxmox_virtual_environment_vm.node4_talos_node.ipv4_addresses
+}
+
+output "node4_talos_installer_image" {
+  description = "Talos installer image ref matching this node's factory schematic + version"
+  value       = "factory.talos.dev/installer/${talos_image_factory_schematic.this.id}:${var.talos_version}"
 }
