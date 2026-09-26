@@ -95,6 +95,10 @@ jobs:
         shell: bash
         run: |
           PLAN_FLAGS="-input=false -out=tfplan.binary"
+          # prod3 quadlet provisioning needs an ssh-agent (SSH_AUTH_SOCK) that CI
+          # runners don't have; always exclude here (talos cluster takeover will
+          # remove prod3 entirely, see PR discussion). Real fix tracked separately.
+          PLAN_FLAGS="$PLAN_FLAGS -exclude=null_resource.prod3_quadlets -exclude=null_resource.openviking_config"
           NODE1_HOST=$(echo "${NODE1_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
             echo "node1 host ($NODE1_HOST) unreachable/offline on port 8006; excluding node1 resources"
