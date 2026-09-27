@@ -90,6 +90,10 @@ jobs:
         shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
+          # prod3 quadlet provisioning needs an ssh-agent (SSH_AUTH_SOCK) that CI
+          # runners don't have; always exclude here (talos cluster takeover will
+          # remove prod3 entirely, see PR discussion). Real fix tracked separately.
+          TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=null_resource.prod3_quadlets -exclude=null_resource.openviking_config"
           # Exclude node3 if unreachable (Netbird may not route to it yet)
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
