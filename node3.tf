@@ -18,3 +18,8 @@ module "node3" {
 # no access to production HA instance or the real Zigbee/Z-Wave USB stick).
 # See docs/ha-sandbox.md for the clone/reset procedure.
 
+
+output "talos_node3_ips" {
+  description = "Allocated IPv4 addresses for Talos node on node3"
+  value       = module.node3.talos_node3_ips
+}

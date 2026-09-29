@@ -10,6 +10,14 @@ terraform {
       source  = "siderolabs/talos"
       version = ">=0.7.0"
     }
+    helm = {
+      source  = "hashicorp/helm"
+      version = ">=3.0.0"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = ">=3.0.0"
+    }
   }
 
   backend "s3" {

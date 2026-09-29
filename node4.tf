@@ -9,3 +9,9 @@ module "node4" {
     proxmox = proxmox.node4
   }
 }
+
+output "talos_node4_ips" {
+  description = "Allocated IPv4 addresses for Talos node on node4"
+  value       = module.node4.talos_node4_ips
+}
+
