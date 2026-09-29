@@ -19,7 +19,7 @@ permissions:
 # Only one drift check at a time
 concurrency:
   group: tofu-drift
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   drift:
@@ -58,6 +58,7 @@ jobs:
             sleep 2
           done
           sudo netbird status
+          sleep 5 # wait for routes
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
@@ -66,19 +67,32 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure     = true
           node1_endpoint       = "${NODE1_ENDPOINT}"
-          node1_api_token      = "${NODE1_GHPROD_PLAN_TOKEN}"
           node3_endpoint       = "${NODE3_ENDPOINT}"
-          node3_api_token      = "${NODE3_GHPROD_PLAN_TOKEN}"
           node4_endpoint       = "${NODE4_ENDPOINT}"
-          node4_api_token      = "${NODE4_GHPROD_PLAN_TOKEN}"
           EOF
+          format_token() {
+            local token="$1"
+            local token_type="$2"
+            if [ -n "$token" ]; then
+              if [[ "$token" != *"!"* ]]; then
+                token="ghprod@pve!${token_type}=${token}"
+              fi
+              echo "$token"
+            fi
+          }
+          T1=$(format_token "${NODE1_API_TOKEN}" "plan")
+          if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T3=$(format_token "${NODE3_API_TOKEN}" "plan")
+          if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
+          T4=$(format_token "${NODE4_API_TOKEN}" "plan")
+          if [ -n "$T4" ]; then echo "node4_api_token = \"$T4\"" >> ci.auto.tfvars; fi
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
-          NODE1_GHPROD_PLAN_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
-          NODE3_GHPROD_PLAN_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
+          NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
-          NODE4_GHPROD_PLAN_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
+          NODE4_API_TOKEN: ${{ secrets.NODE4_GHPROD_PLAN_TOKEN }}
 
       - name: tofu init
         run: tofu init -input=false -backend-config="endpoint=https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
@@ -91,13 +105,13 @@ jobs:
           TOFU_PLAN_FLAGS=""
           # Exclude node3 if unreachable (Netbird may not route to it yet)
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if [ -z "$NODE3_HOST" ] || ! getent hosts "$NODE3_HOST" >/dev/null 2>&1; then
-            echo "::warning::node3 unreachable — excluding module.node3 from drift check"
+          if [ -n "$NODE3_HOST" ] && ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
+            echo "::warning::node3 unreachable on port 8006 — excluding module.node3 from drift check"
             TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node3"
           fi
           NODE4_HOST=$(echo "${NODE4_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
-          if [ -z "$NODE4_HOST" ] || ! getent hosts "$NODE4_HOST" >/dev/null 2>&1; then
-            echo "::warning::node4 unreachable — excluding module.node4 from drift check"
+          if [ -n "$NODE4_HOST" ] && ! nc -z -w 3 "$NODE4_HOST" 8006 >/dev/null 2>&1; then
+            echo "::warning::node4 unreachable on port 8006 — excluding module.node4 from drift check"
             TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node4"
           fi
           export TOFU_PLAN_FLAGS

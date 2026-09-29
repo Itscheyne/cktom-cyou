@@ -48,6 +48,7 @@ jobs:
             sleep 2
           done
           sudo netbird status
+          sleep 5 # wait for routes
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
@@ -180,6 +181,7 @@ jobs:
             sleep 2
           done
           sudo netbird status
+          sleep 5 # wait for routes
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
