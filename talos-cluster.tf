@@ -1,39 +1,29 @@
-# Talos Kubernetes cluster bootstrap: node3 = controlplane, node4 = worker.
-# Only 2 physical hosts exist -> single control-plane node (2-node etcd quorum is
-# unsafe, so we don't attempt HA here). VMs themselves are provisioned in
-# modules/node3/talos.tf and modules/node4/talos.tf (vm_id 810 / 811); this file
-# owns the shared cluster identity + machine config + bootstrap, which must live
-# at root (single instance, not duplicated per node module).
-
 resource "talos_machine_secrets" "cluster" {
   talos_version = var.talos_version
 }
 
 locals {
-  # Both talos VMs sit on the untagged/native vlan of vmbr0 (shared upstream LAN,
-  # DHCP), NOT the per-node SDN NAT zones (10.13.0.0/24 / 10.14.0.0/24 are
-  # node-isolated and not mutually routable, so they can't carry cluster traffic).
-  # ipv4_addresses is List(List(String)) per network interface; index 0 is
-  # lo/127.0.0.1. Filter that out (and any ipv6/link-local noise) to get the
-  # real DHCP-assigned address reported by qemu-guest-agent.
-  node3_ip = try(
-    [for ip in flatten(module.node3.talos_node3_ips) : ip
-      if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))
-    ][0],
-    null
-  )
-  node4_ip = try(
-    [for ip in flatten(module.node4.talos_node4_ips) : ip
-      if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))
-    ][0],
-    null
-  )
+  # CPs
+  node3_cp_ips = {
+    for k, v in module.node3.talos_node3_cp_ips : k => try([for ip in flatten(v) : ip if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))][0], "")
+  }
+  node4_cp_ips = {
+    for k, v in module.node4.talos_node4_cp_ips : k => try([for ip in flatten(v) : ip if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))][0], "")
+  }
+  all_cp_ips = merge(local.node3_cp_ips, local.node4_cp_ips)
 
-  talos_cluster_endpoint = "https://${local.node3_ip}:6443"
+  # Workers
+  node3_worker_ips = {
+    for k, v in module.node3.talos_node3_worker_ips : k => try([for ip in flatten(v) : ip if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))][0], "")
+  }
+  node4_worker_ips = {
+    for k, v in module.node4.talos_node4_worker_ips : k => try([for ip in flatten(v) : ip if ip != "127.0.0.1" && !can(regex("^::1$|^fe80", ip))][0], "")
+  }
+  all_worker_ips = merge(local.node3_worker_ips, local.node4_worker_ips)
 
-  # scsi0 is the first (and only) data disk on both VMs under the default
-  # virtio-scsi-pci controller -> exposed to the guest as /dev/sda.
-  install_disk = "/dev/sda"
+  endpoint_ip            = local.all_cp_ips["cp1"] != "" ? local.all_cp_ips["cp1"] : "127.0.0.1"
+  talos_cluster_endpoint = "https://${local.endpoint_ip}:6443"
+  install_disk           = "/dev/sda"
 }
 
 data "talos_machine_configuration" "controlplane" {
@@ -48,10 +38,17 @@ data "talos_machine_configuration" "controlplane" {
       machine = {
         install = {
           disk  = local.install_disk
-          image = module.node3.node3_talos_installer_image
+          image = "factory.talos.dev/installer/${var.talos_version}"
         }
       }
-    }),
+      cluster = {
+        network = {
+          cni = {
+            name = "none"
+          }
+        }
+      }
+    })
   ]
 }
 
@@ -67,62 +64,40 @@ data "talos_machine_configuration" "worker" {
       machine = {
         install = {
           disk  = local.install_disk
-          image = module.node4.node4_talos_installer_image
+          image = "factory.talos.dev/installer/${var.talos_version}"
         }
       }
-    }),
+    })
   ]
 }
 
 resource "talos_machine_configuration_apply" "controlplane" {
+  for_each                    = local.all_cp_ips
   client_configuration        = talos_machine_secrets.cluster.client_configuration
   machine_configuration_input = data.talos_machine_configuration.controlplane.machine_configuration
-  node                        = local.node3_ip
-
-  lifecycle {
-    replace_triggered_by = [talos_machine_secrets.cluster]
-  }
+  node                        = each.value
 }
 
 resource "talos_machine_configuration_apply" "worker" {
+  for_each                    = local.all_worker_ips
   client_configuration        = talos_machine_secrets.cluster.client_configuration
   machine_configuration_input = data.talos_machine_configuration.worker.machine_configuration
-  node                        = local.node4_ip
-
-  lifecycle {
-    replace_triggered_by = [talos_machine_secrets.cluster]
-  }
+  node                        = each.value
 }
 
-resource "talos_machine_bootstrap" "controlplane" {
-  depends_on = [talos_machine_configuration_apply.controlplane]
-
+resource "talos_machine_bootstrap" "this" {
+  depends_on           = [talos_machine_configuration_apply.controlplane]
   client_configuration = talos_machine_secrets.cluster.client_configuration
-  node                 = local.node3_ip
+  node                 = local.endpoint_ip
 }
 
 resource "talos_cluster_kubeconfig" "cluster" {
-  depends_on = [talos_machine_bootstrap.controlplane]
-
+  depends_on           = [talos_machine_bootstrap.this]
   client_configuration = talos_machine_secrets.cluster.client_configuration
-  node                 = local.node3_ip
-}
-
-data "talos_client_configuration" "cluster" {
-  cluster_name         = var.talos_cluster_name
-  client_configuration = talos_machine_secrets.cluster.client_configuration
-  nodes                = [local.node3_ip, local.node4_ip]
-  endpoints            = [local.node3_ip]
+  node                 = local.endpoint_ip
 }
 
 output "kubeconfig" {
-  description = "Kubeconfig for the talos-cluster (node3 CP / node4 worker)"
-  value       = talos_cluster_kubeconfig.cluster.kubeconfig_raw
-  sensitive   = true
-}
-
-output "talosconfig" {
-  description = "Talosctl client config for the talos-cluster"
-  value       = data.talos_client_configuration.cluster.talos_config
-  sensitive   = true
+  value     = talos_cluster_kubeconfig.cluster.kubeconfig_raw
+  sensitive = true
 }
