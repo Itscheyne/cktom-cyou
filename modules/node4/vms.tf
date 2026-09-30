@@ -176,3 +176,65 @@ resource "proxmox_virtual_environment_vm" "node4_homeassistant_ha" {
 
 
 
+
+resource "proxmox_virtual_environment_vm" "node4_ipa_2" {
+  provider  = proxmox
+  name      = "ipa-2"
+  node_name = "node4"
+  vm_id     = 702
+  started   = true
+
+  clone {
+    vm_id     = 700
+    node_name = "node3"
+    full      = true
+  }
+
+  cpu {
+    cores   = 2
+    sockets = 1
+    type    = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  efi_disk {
+    datastore_id = "imagepool0"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "scsi0"
+    datastore_id = "imagepool0-zvols"
+    size         = 25
+  }
+
+  initialization {
+    user_account {
+      username = "root"
+      keys     = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILBX4GURQdhZsL/jvvYIPomwy0pkFI808d52KIf9tb1i devmin@dev"]
+    }
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
+  }
+
+  network_device {
+    bridge      = "vmbr0"
+    mac_address = "D0:99:14:1A:A0:02"
+    model       = "virtio"
+    vlan_id     = 3
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
