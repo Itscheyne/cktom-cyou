@@ -1,0 +1,38 @@
+[Unit]
+Description=OPNSense Prometheus Exporter — scrapes OPNSense REST API and exposes Prometheus metrics for Netdata
+After=network-online.target
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+
+[Container]
+ContainerName=opnsense-exporter
+# Official OPNsense Prometheus exporter by AthennaMind
+# https://github.com/AthennaMind/opnsense-exporter
+Image=ghcr.io/athennamind/opnsense-exporter:latest
+AutoUpdate=registry
+Pull=newer
+
+# Bind to loopback only — Netdata scrapes from localhost on port 9100
+PublishPort=127.0.0.1:9100:9100
+
+# OPNSense API credentials — create podman secrets before first start:
+#   printf '%s' 'your-api-key'    | podman secret create OPNSENSE_API_KEY -
+#   printf '%s' 'your-api-secret' | podman secret create OPNSENSE_API_SECRET -
+#
+# In OPNSense: System > Access > Users > Add API key for a user with
+#   Firewall, IDS/Intrusion Detection, and Diagnostics: read access.
+Secret=OPNSENSE_API_KEY,type=env,target=OPS_API_KEY
+Secret=OPNSENSE_API_SECRET,type=env,target=OPS_API_SECRET
+
+# OPNSense router at 10.0.4.1 — HTTPS, self-signed cert (skip verify)
+Environment=OPNSENSE_EXPORTER_INSTANCE_LABEL=opnsense-ips
+Exec=--opnsense.protocol=https \
+     --opnsense.address=10.0.4.1 \
+     --opnsense.insecure=true \
+     --web.listen-address=:9100 \
+     --web.disable-exporter-metrics=false
