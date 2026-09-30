@@ -1,0 +1,28 @@
+[Unit]
+Description=OmniRoute Prometheus Exporter — bridges OmniRoute JSON metrics to Prometheus format for Netdata
+After=network-online.target
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+
+[Container]
+ContainerName=omniroute-exporter
+# Image built from netdata/omniroute-exporter/Dockerfile and pushed to local registry or GHCR
+# Example: ghcr.io/itscheyne/omniroute-exporter:latest
+# For local build: podman build -t omniroute-exporter:local ./netdata/omniroute-exporter/
+Image=ghcr.io/itscheyne/omniroute-exporter:latest
+
+# Bind to loopback only — Netdata scrapes from localhost, no external exposure needed
+PublishPort=127.0.0.1:9877:9877
+
+# Auth token for OmniRoute management endpoints
+# Create with: printf '%s' 'TOKEN_VALUE' | podman secret create OMNIROUTE_MGMT_TOKEN -
+Secret=OMNIROUTE_MGMT_TOKEN,type=env,target=OMNIROUTE_MGMT_TOKEN
+
+Environment=OMNIROUTE_BASE_URL=https://omniroute.prod.sf.cktom.cyou
+Environment=EXPORTER_PORT=9877
+Environment=SCRAPE_INTERVAL=30
