@@ -66,6 +66,7 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure = true
           node1_endpoint   = "${NODE1_ENDPOINT}"
+          node2_endpoint   = "${NODE2_ENDPOINT}"
           node3_endpoint   = "${NODE3_ENDPOINT}"
           node4_endpoint   = "${NODE4_ENDPOINT}"
           EOF
@@ -86,6 +87,8 @@ jobs:
           fi
           T1=$(format_token "${NODE1_API_TOKEN}" "plan")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T2=$(format_token "${NODE2_API_TOKEN}" "plan")
+          if [ -n "$T2" ]; then echo "node2_api_token = \"$T2\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "plan")
           if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
           T4=$(format_token "${NODE4_API_TOKEN}" "plan")
@@ -93,6 +96,8 @@ jobs:
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
+          NODE2_API_TOKEN: ${{ secrets.NODE2_GHPROD_PLAN_TOKEN }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
@@ -116,6 +121,11 @@ jobs:
           if ! nc -z -w 3 "$NODE1_HOST" 8006 >/dev/null 2>&1; then
             echo "node1 host ($NODE1_HOST) unreachable/offline on port 8006; excluding node1 resources"
             PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node1 -exclude=proxmox_sdn_vnet.node1 -exclude=proxmox_virtual_environment_sdn_vnet.node1 -exclude=proxmox_sdn_zone_simple.internal -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+          fi
+          NODE2_HOST=$(echo "${NODE2_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if ! nc -z -w 3 "$NODE2_HOST" 8006 >/dev/null 2>&1; then
+            echo "node2 host ($NODE2_HOST) unreachable/offline on port 8006; excluding module.node2"
+            PLAN_FLAGS="$PLAN_FLAGS -exclude=module.node2"
           fi
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
