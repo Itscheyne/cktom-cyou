@@ -109,6 +109,11 @@ jobs:
           # remove prod3 entirely, see PR discussion). Real fix tracked separately.
           TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=null_resource.prod3_quadlets -exclude=null_resource.openviking_config"
           # Exclude node3 if unreachable (Netbird may not route to it yet)
+          NODE2_HOST=$(echo "${NODE2_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+          if [ -n "$NODE2_HOST" ] && ! nc -z -w 3 "$NODE2_HOST" 8006 >/dev/null 2>&1; then
+            echo "::warning::node2 unreachable on port 8006 — excluding module.node2 from drift check"
+            TOFU_PLAN_FLAGS="$TOFU_PLAN_FLAGS -exclude=module.node2"
+          fi
           NODE3_HOST=$(echo "${NODE3_ENDPOINT}" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
           if [ -n "$NODE3_HOST" ] && ! nc -z -w 3 "$NODE3_HOST" 8006 >/dev/null 2>&1; then
             echo "::warning::node3 unreachable on port 8006 — excluding module.node3 from drift check"
