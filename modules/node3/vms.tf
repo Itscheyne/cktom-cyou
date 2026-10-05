@@ -863,3 +863,63 @@ resource "proxmox_virtual_environment_vm" "node3_hermes" {
     ignore_changes = all
   }
 }
+
+resource "proxmox_virtual_environment_vm" "node3_ipa_1" {
+  provider  = proxmox
+  name      = "ipa-1"
+  node_name = "node3"
+  vm_id     = 701
+  started   = true
+
+  clone {
+    vm_id = 700
+  }
+
+  cpu {
+    cores   = 2
+    sockets = 1
+    type    = "host"
+  }
+
+  memory {
+    dedicated = 4096
+  }
+
+  efi_disk {
+    datastore_id = "rpool"
+    type         = "4m"
+  }
+
+  disk {
+    interface    = "scsi0"
+    datastore_id = "rpool-zvols"
+    size         = 25
+  }
+
+  initialization {
+    user_account {
+      username = "root"
+      keys     = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILBX4GURQdhZsL/jvvYIPomwy0pkFI808d52KIf9tb1i devmin@dev"]
+    }
+    ip_config {
+      ipv4 {
+        address = "dhcp"
+      }
+    }
+  }
+
+  network_device {
+    bridge      = "vmbr2"
+    mac_address = "D0:99:13:1A:A0:01"
+    model       = "virtio"
+    vlan_id     = 3
+  }
+
+  operating_system {
+    type = "l26"
+  }
+
+  lifecycle {
+    ignore_changes = all
+  }
+}
