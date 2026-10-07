@@ -11,12 +11,14 @@
 # SDN internal networks:
 #   node3: 10.13.0.0/24 → SNAT via 10.0.3.13 on vmbr0.3
 #   node4: 10.14.0.0/24 → SNAT via 10.0.3.14 on vmbr0.3
+#   node2: 10.12.0.0/24 → SNAT via 10.0.4.12 on vmbr0.4
 #
 # DNS domain: <node>.sf.cktom.cyou
 # DHCP: dnsmasq, static leases only (dhcp-ignore=tag:!known)
 # ──────────────────────────────────────────────
 
 # Network bridges moved into per-node modules:
+#   node2 vmbr0             → modules/node2/networking.tf
 #   node3 vmbr0/vmbr1/vmbr2 → modules/node3/networking.tf
 #   node4 vmbr0             → modules/node4/networking.tf
 
@@ -35,6 +37,12 @@
 # manage SDN zones via the Proxmox API or datacenter.cfg directly.
 
 # ── SDN Network Documentation ───────────────
+#
+# node2 SDN bridge "node2":
+#   Address:  10.12.0.1/24
+#   SNAT:     10.12.0.0/24 → 10.0.4.12 via vmbr0.4
+#   DHCP:     dnsmasq, static only, domain node2.sf.cktom.cyou
+#   Features: ip-forward, conntrack zone 1
 #
 # node3 SDN bridge "node3":
 #   Address:  10.13.0.1/24

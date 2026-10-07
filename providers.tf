@@ -70,3 +70,16 @@ provider "proxmox" {
     agent = true
   }
 }
+
+provider "proxmox" {
+  alias     = "node2"
+  endpoint  = var.node2_endpoint
+  api_token = var.node2_api_token != "" ? var.node2_api_token : null
+  username  = var.node2_api_token != null && var.node2_api_token != "" ? null : var.node2_username
+  password  = var.node2_api_token != null && var.node2_api_token != "" ? null : var.node2_password
+  insecure  = var.proxmox_insecure
+
+  ssh {
+    agent = true
+  }
+}

@@ -109,3 +109,28 @@ variable "talos_netbird_management_url" {
   type        = string
   default     = ""
 }
+
+variable "node2_endpoint" {
+  description = "Proxmox VE API endpoint for node2 (e.g. https://node2.lab.sf.cktom.cyou:8006)"
+  type        = string
+}
+
+variable "node2_username" {
+  description = "Proxmox VE API username for node2 (e.g. root@pam)"
+  type        = string
+  default     = null
+}
+
+variable "node2_password" {
+  description = "Proxmox VE API password for node2"
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "node2_api_token" {
+  description = "Proxmox VE API token for node2 (e.g. ghprod@pve!apply=<secret>). Takes precedence over password when set."
+  type        = string
+  sensitive   = true
+  default     = null
+}
