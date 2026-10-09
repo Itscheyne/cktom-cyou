@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   drift:
-    name: drift detection (node3 + node4)
+    name: drift detection (node2 + node3 + node4)
     runs-on: ubuntu-latest
     # Same plan-gate environment as tofu-plan — requires manual approval for secrets
     environment: plan-gate
@@ -67,6 +67,7 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure     = true
           node1_endpoint       = "${NODE1_ENDPOINT}"
+          node2_endpoint       = "${NODE2_ENDPOINT}"
           node3_endpoint       = "${NODE3_ENDPOINT}"
           node4_endpoint       = "${NODE4_ENDPOINT}"
           EOF
@@ -82,6 +83,8 @@ jobs:
           }
           T1=$(format_token "${NODE1_API_TOKEN}" "plan")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T2=$(format_token "${NODE2_API_TOKEN}" "plan")
+          if [ -n "$T2" ]; then echo "node2_api_token = \"$T2\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "plan")
           if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
           T4=$(format_token "${NODE4_API_TOKEN}" "plan")
@@ -89,6 +92,8 @@ jobs:
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
+          NODE2_API_TOKEN: ${{ secrets.NODE2_GHPROD_PLAN_TOKEN }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
@@ -100,7 +105,7 @@ jobs:
       - name: tofu validate
         run: tofu validate
 
-      - name: Drift detection (node3 + node4)
+      - name: Drift detection (node2 + node3 + node4)
         shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
@@ -127,6 +132,7 @@ jobs:
           export TOFU_PLAN_FLAGS
           bash scripts/test-drift.sh
         env:
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
