@@ -57,9 +57,26 @@ jobs:
             sleep 2
           done
           sudo netbird status
-          sleep 5 # wait for routes
+
+          # Wait for mesh routing to establish
+          echo "Waiting for Proxmox endpoints to become reachable..."
+          for endpoint in "${NODE1_ENDPOINT}" "${NODE3_ENDPOINT}" "${NODE4_ENDPOINT}"; do
+            HOST=$(echo "$endpoint" | sed -e 's|https://||' -e 's|http://||' -e 's|:.*||' -e 's|/.*||')
+            if [ -z "$HOST" ]; then continue; fi
+            echo "Checking $HOST..."
+            for j in $(seq 1 20); do
+              if nc -z -w 2 "$HOST" 8006 >/dev/null 2>&1; then
+                echo "$HOST is reachable"
+                break
+              fi
+              sleep 2
+            done
+          done
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
       - name: Write tfvars
         run: |
