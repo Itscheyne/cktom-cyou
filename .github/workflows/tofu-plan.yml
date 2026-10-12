@@ -51,9 +51,17 @@ jobs:
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
             --daemon-addr unix:///var/run/netbird.sock
-          for i in $(seq 1 15); do
-            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            if [ "$STATUS" -gt 0 ]; then break; fi
+          # netbird status (non-detail) prints "Management: Connected" /
+          # "Signal: Connected" within ~1s of `netbird up`, before any peer
+          # WireGuard handshake happens. A plain `grep -c Connected` matches
+          # those daemon-state lines immediately and exits the loop with 0
+          # peers actually connected. Parse the "Peers count: X/Y Connected"
+          # line instead and wait for at least one real peer handshake.
+          # Relay/ICE handshakes can take tens of seconds on ephemeral
+          # runners, so budget is bumped from 15x2s=30s to 30x2s=60s.
+          for i in $(seq 1 30); do
+            PEERS=$(sudo netbird status 2>/dev/null | grep -oP 'Peers count: \K[0-9]+' || true)
+            if [ -n "$PEERS" ] && [ "$PEERS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status

@@ -154,6 +154,20 @@ def main():
     resources = collect_resources(root)
     print(f"Resources found in state: {len(resources)}")
 
+    if len(resources) == 0:
+        # A legitimate transient state: every node module was excluded from
+        # the plan (e.g. drift-check's -exclude=module.nodeX because the
+        # node was unreachable over the Netbird mesh at check time), so the
+        # plan JSON has nothing to validate. This is NOT the same as missing
+        # expected resources — don't run assertions (every EXPECTED entry
+        # would spuriously report MISSING) and don't fail the job. Report a
+        # distinguishable skip so a mesh blip doesn't look like a state bug.
+        print(
+            "\nSKIP: 0 resources in plan — all node modules appear to have "
+            "been excluded (nodes unreachable). Nothing to validate this run."
+        )
+        sys.exit(0)
+
     passed, failures = run_assertions(resources)
 
     total = passed + len(failures)
