@@ -61,6 +61,14 @@ jobs:
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
+      - name: Verify Proxmox connectivity
+        run: bash scripts/check-connectivity.sh
+        env:
+          NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
+          NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
+          NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
+
       - name: Write tfvars
         run: |
           cat > ci.auto.tfvars <<EOF

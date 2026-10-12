@@ -14,10 +14,12 @@ ARG TOFU_VERSION=1.9.1
 # unzip: opentofu installer dependency.
 # sudo: existing workflow steps call `sudo netbird up` / `sudo netbird status`.
 # python3: tofu-plan/tofu-drift workflows run scripts/test-state.py.
+# iputils-ping: scripts/check-connectivity.sh ICMP-probes Proxmox node hosts.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         gnupg \
+        iputils-ping \
         jq \
         python3 \
         sudo \
