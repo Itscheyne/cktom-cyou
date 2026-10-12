@@ -49,14 +49,14 @@ jobs:
           # peers actually connected. Parse the "Peers count: X/Y Connected"
           # line instead and wait for at least one real peer handshake.
           # Relay/ICE handshakes can take tens of seconds on ephemeral
-          # runners, so budget is bumped from 15x2s=30s to 30x2s=60s.
-          for i in $(seq 1 30); do
+          # runners, so budget is bumped from 15x2s=30s to 45x2s=60s.
+          for i in $(seq 1 45); do
             PEERS=$(sudo netbird status 2>/dev/null | grep -oP 'Peers count: \K[0-9]+' || true)
             if [ -n "$PEERS" ] && [ "$PEERS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
-          sleep 5 # wait for routes
+          sleep 10 # wait for routes
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
@@ -136,6 +136,7 @@ jobs:
           tofu plan $PLAN_FLAGS
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
@@ -205,14 +206,14 @@ jobs:
           # peers actually connected. Parse the "Peers count: X/Y Connected"
           # line instead and wait for at least one real peer handshake.
           # Relay/ICE handshakes can take tens of seconds on ephemeral
-          # runners, so budget is bumped from 15x2s=30s to 30x2s=60s.
-          for i in $(seq 1 30); do
+          # runners, so budget is bumped from 15x2s=30s to 45x2s=90s.
+          for i in $(seq 1 45); do
             PEERS=$(sudo netbird status 2>/dev/null | grep -oP 'Peers count: \K[0-9]+' || true)
             if [ -n "$PEERS" ] && [ "$PEERS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
-          sleep 5 # wait for routes
+          sleep 10 # wait for routes
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
 
