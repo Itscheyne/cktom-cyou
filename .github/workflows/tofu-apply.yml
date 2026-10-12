@@ -25,7 +25,10 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --cap-add=NET_ADMIN --device=/dev/net/tun
+      # NET_ADMIN + /dev/net/tun for the WireGuard interface; SYS_ADMIN + SYS_RESOURCE
+      # per upstream NetBird docker guidance (eBPF/raw-socket requirements for the
+      # standard, non-rootless client used in docker/tofu-ci/Dockerfile).
+      options: --cap-add=NET_ADMIN --cap-add=SYS_ADMIN --cap-add=SYS_RESOURCE --device=/dev/net/tun
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
@@ -168,7 +171,10 @@ jobs:
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-      options: --cap-add=NET_ADMIN --device=/dev/net/tun
+      # NET_ADMIN + /dev/net/tun for the WireGuard interface; SYS_ADMIN + SYS_RESOURCE
+      # per upstream NetBird docker guidance (eBPF/raw-socket requirements for the
+      # standard, non-rootless client used in docker/tofu-ci/Dockerfile).
+      options: --cap-add=NET_ADMIN --cap-add=SYS_ADMIN --cap-add=SYS_RESOURCE --device=/dev/net/tun
 
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
