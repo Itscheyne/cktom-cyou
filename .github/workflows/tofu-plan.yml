@@ -50,7 +50,8 @@ jobs:
           sudo netbird service start || true
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
-            --daemon-addr unix:///var/run/netbird.sock
+            --daemon-addr unix:///var/run/netbird.sock \
+            --disable-dns=false
           # netbird status (non-detail) prints "Management: Connected" /
           # "Signal: Connected" within ~1s of `netbird up`, before any peer
           # WireGuard handshake happens. A plain `grep -c Connected` matches
@@ -58,16 +59,27 @@ jobs:
           # peers actually connected. Parse the "Peers count: X/Y Connected"
           # line instead and wait for at least one real peer handshake.
           # Relay/ICE handshakes can take tens of seconds on ephemeral
-          # runners, so budget is bumped from 15x2s=30s to 30x2s=60s.
-          for i in $(seq 1 30); do
+          # runners, so budget is bumped from 15x2s=30s to 45x2s=90s.
+          for i in $(seq 1 45); do
             PEERS=$(sudo netbird status 2>/dev/null | grep -oP 'Peers count: \K[0-9]+' || true)
             if [ -n "$PEERS" ] && [ "$PEERS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
-          sleep 5 # wait for routes
+          sleep 10 # wait for routes
+          # Populate /etc/hosts from NetBird mesh peers (bypasses container MagicDNS limitations)
+          echo "Populating /etc/hosts with NetBird mesh peers..."
+          sudo netbird status --json | jq -r '.peers.details[]? | "\(.netbirdIp | split("/")[0]) \(.fqdn) \(.fqdn | split(".")[0])"' | sudo tee -a /etc/hosts || true
+          # Fallback static mappings for Proxmox cluster nodes if not yet discovered
+          grep -q "node1.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.16 node1.netbird.cktom.cyou node1" | sudo tee -a /etc/hosts
+          grep -q "node2.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.53 node2.netbird.cktom.cyou node2" | sudo tee -a /etc/hosts
+          grep -q "node3.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.4 node3.netbird.cktom.cyou node3" | sudo tee -a /etc/hosts
+          grep -q "node4.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.108 node4.netbird.cktom.cyou node4" | sudo tee -a /etc/hosts
+          echo "Current /etc/hosts entries for NetBird:"
+          grep -E "netbird\.cktom\.cyou|node[1-4]" /etc/hosts || true
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NB_DISABLE_DNS: "false"
 
       - name: Write tfvars
         run: |
