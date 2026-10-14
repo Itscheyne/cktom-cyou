@@ -9,6 +9,9 @@ FROM ubuntu:24.04
 
 ARG TOFU_VERSION=1.9.1
 
+# Ensure NetBird daemon does not disable DNS management by default
+ENV NB_DISABLE_DNS=false
+
 # ca-certificates/gnupg/curl: needed by the netbird install script and tofu installer.
 # jq: used by CI scripts to parse plan/apply JSON.
 # unzip: opentofu installer dependency.
