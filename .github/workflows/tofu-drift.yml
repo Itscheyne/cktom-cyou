@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Scope: node34 (default) or all"
+        description: "Scope: node1234 (default) or all"
         required: false
-        default: "node34"
+        default: "node1234"
 
 permissions:
   contents: read
