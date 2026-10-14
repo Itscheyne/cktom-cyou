@@ -9,16 +9,23 @@ FROM ubuntu:24.04
 
 ARG TOFU_VERSION=1.9.1
 
+# Ensure NetBird daemon does not disable DNS management by default
+ENV NB_DISABLE_DNS=false
+
 # ca-certificates/gnupg/curl: needed by the netbird install script and tofu installer.
 # jq: used by CI scripts to parse plan/apply JSON.
 # unzip: opentofu installer dependency.
 # sudo: existing workflow steps call `sudo netbird up` / `sudo netbird status`.
 # python3: tofu-plan/tofu-drift workflows run scripts/test-state.py.
+# netcat-openbsd: workflow steps probe node reachability via `nc -z -w 3 <host> 8006`;
+# without it `nc` is "command not found" (exit 127), which the `!`-negated check
+# silently treats as "unreachable" and excludes every node from the plan.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         gnupg \
         jq \
+        netcat-openbsd \
         python3 \
         sudo \
         unzip \
