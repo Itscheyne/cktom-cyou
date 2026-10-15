@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       scope:
-        description: "Scope: node34 (default) or all"
+        description: "Scope: node1234 (default) or all"
         required: false
-        default: "node34"
+        default: "node1234"
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   drift:
-    name: drift detection (node3 + node4)
+    name: drift detection (node2 + node3 + node4)
     runs-on: ubuntu-latest
     # Same plan-gate environment as tofu-plan — requires manual approval for secrets
     environment: plan-gate
@@ -51,16 +51,36 @@ jobs:
           sudo netbird service start || true
           sudo netbird up \
             --setup-key "$NETBIRD_SETUP_KEY" \
-            --daemon-addr unix:///var/run/netbird.sock
-          for i in $(seq 1 15); do
-            STATUS=$(sudo netbird status 2>/dev/null | grep -c "Connected" || true)
-            if [ "$STATUS" -gt 0 ]; then break; fi
+            --daemon-addr unix:///var/run/netbird.sock \
+            --disable-dns=false
+          # netbird status (non-detail) prints "Management: Connected" /
+          # "Signal: Connected" within ~1s of `netbird up`, before any peer
+          # WireGuard handshake happens. A plain `grep -c Connected` matches
+          # those daemon-state lines immediately and exits the loop with 0
+          # peers actually connected. Parse the "Peers count: X/Y Connected"
+          # line instead and wait for at least one real peer handshake.
+          # Relay/ICE handshakes can take tens of seconds on ephemeral
+          # runners, so budget is bumped from 15x2s=30s to 45x2s=90s.
+          for i in $(seq 1 45); do
+            PEERS=$(sudo netbird status 2>/dev/null | grep -oP 'Peers count: \K[0-9]+' || true)
+            if [ -n "$PEERS" ] && [ "$PEERS" -gt 0 ]; then break; fi
             sleep 2
           done
           sudo netbird status
-          sleep 5 # wait for routes
+          sleep 10 # wait for routes
+          # Populate /etc/hosts from NetBird mesh peers (bypasses container MagicDNS limitations)
+          echo "Populating /etc/hosts with NetBird mesh peers..."
+          sudo netbird status --json | jq -r '.peers.details[]? | "\(.netbirdIp | split("/")[0]) \(.fqdn) \(.fqdn | split(".")[0])"' | sudo tee -a /etc/hosts || true
+          # Fallback static mappings for Proxmox cluster nodes if not yet discovered
+          grep -q "node1.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.16 node1.netbird.cktom.cyou node1" | sudo tee -a /etc/hosts
+          grep -q "node2.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.53 node2.netbird.cktom.cyou node2" | sudo tee -a /etc/hosts
+          grep -q "node3.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.4 node3.netbird.cktom.cyou node3" | sudo tee -a /etc/hosts
+          grep -q "node4.netbird.cktom.cyou" /etc/hosts || echo "10.99.0.108 node4.netbird.cktom.cyou node4" | sudo tee -a /etc/hosts
+          echo "Current /etc/hosts entries for NetBird:"
+          grep -E "netbird\.cktom\.cyou|node[1-4]" /etc/hosts || true
         env:
           NETBIRD_SETUP_KEY: ${{ secrets.NETBIRD_SETUP_KEY }}
+          NB_DISABLE_DNS: "false"
 
       - name: Verify Proxmox connectivity
         run: bash scripts/check-connectivity.sh
@@ -74,6 +94,7 @@ jobs:
           cat > ci.auto.tfvars <<EOF
           proxmox_insecure     = true
           node1_endpoint       = "${NODE1_ENDPOINT}"
+          node2_endpoint       = "${NODE2_ENDPOINT}"
           node3_endpoint       = "${NODE3_ENDPOINT}"
           node4_endpoint       = "${NODE4_ENDPOINT}"
           EOF
@@ -89,6 +110,8 @@ jobs:
           }
           T1=$(format_token "${NODE1_API_TOKEN}" "plan")
           if [ -n "$T1" ]; then echo "node1_api_token = \"$T1\"" >> ci.auto.tfvars; fi
+          T2=$(format_token "${NODE2_API_TOKEN}" "plan")
+          if [ -n "$T2" ]; then echo "node2_api_token = \"$T2\"" >> ci.auto.tfvars; fi
           T3=$(format_token "${NODE3_API_TOKEN}" "plan")
           if [ -n "$T3" ]; then echo "node3_api_token = \"$T3\"" >> ci.auto.tfvars; fi
           T4=$(format_token "${NODE4_API_TOKEN}" "plan")
@@ -96,6 +119,8 @@ jobs:
         env:
           NODE1_ENDPOINT: ${{ secrets.NODE1_ENDPOINT }}
           NODE1_API_TOKEN: ${{ secrets.NODE1_GHPROD_PLAN_TOKEN }}
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
+          NODE2_API_TOKEN: ${{ secrets.NODE2_GHPROD_PLAN_TOKEN }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE3_API_TOKEN: ${{ secrets.NODE3_GHPROD_PLAN_TOKEN }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
@@ -107,7 +132,7 @@ jobs:
       - name: tofu validate
         run: tofu validate
 
-      - name: Drift detection (node3 + node4)
+      - name: Drift detection (node2 + node3 + node4)
         shell: bash
         run: |
           TOFU_PLAN_FLAGS=""
@@ -134,6 +159,7 @@ jobs:
           export TOFU_PLAN_FLAGS
           bash scripts/test-drift.sh
         env:
+          NODE2_ENDPOINT: ${{ secrets.NODE2_ENDPOINT }}
           NODE3_ENDPOINT: ${{ secrets.NODE3_ENDPOINT }}
           NODE4_ENDPOINT: ${{ secrets.NODE4_ENDPOINT }}
 
