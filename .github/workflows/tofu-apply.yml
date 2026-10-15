@@ -134,25 +134,42 @@ jobs:
       - name: Show plan summary
         run: |
           tofu show -no-color tfplan.binary > plan_output.txt
+          # NOTE: this repo is public — do NOT dump plan body into the job
+          # summary (it is world-readable and leaks infra topology/resource
+          # attrs). Only record resource-count stats here; full plan stays
+          # inside the encrypted artifact below for the human approver.
           echo "### OpenTofu Plan Preview (post-merge)" >> $GITHUB_STEP_SUMMARY
-          echo "<details><summary>Plan output</summary>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```terraform' >> $GITHUB_STEP_SUMMARY
-          tail -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          grep -E '^(Plan:|No changes)' plan_output.txt >> $GITHUB_STEP_SUMMARY || true
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Full plan is attached as an encrypted artifact for the apply-gate reviewer." >> $GITHUB_STEP_SUMMARY
 
-      - name: Upload tfplan artifact
+      - name: Encrypt tfplan artifact
+        run: |
+          # tfplan.binary is a zip of tfstate/tfstate-prev/tfconfig and
+          # contains cleartext secret material (Talos admin keys, bootstrap
+          # tokens, etc.) that Terraform's `sensitive` output flag does NOT
+          # redact from the state file itself. This repo is public, so any
+          # logged-in GitHub account can list/download build artifacts —
+          # never upload tfplan.binary unencrypted.
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase-fd 0 -o tfplan.binary.gpg tfplan.binary \
+            <<< "${TFPLAN_ARTIFACT_PASSPHRASE}"
+        env:
+          TFPLAN_ARTIFACT_PASSPHRASE: ${{ secrets.TFPLAN_ARTIFACT_PASSPHRASE }}
+
+      - name: Upload tfplan artifact (encrypted)
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: tfplan.binary
-          # Retain for 7 days — enough time for human to approve apply
-          retention-days: 7
+          path: tfplan.binary.gpg
+          # Short retention — apply-gate approval normally happens within
+          # hours; 1 day bounds the exposure window for the encrypted blob.
+          retention-days: 1
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars plan_output.txt
+        run: rm -f ci.auto.tfvars plan_output.txt tfplan.binary tfplan.binary.gpg
 
   apply:
     name: tofu apply
@@ -183,6 +200,15 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tfplan
+
+      - name: Decrypt tfplan artifact
+        run: |
+          gpg --batch --yes --decrypt --passphrase-fd 0 \
+            -o tfplan.binary tfplan.binary.gpg \
+            <<< "${TFPLAN_ARTIFACT_PASSPHRASE}"
+          rm -f tfplan.binary.gpg
+        env:
+          TFPLAN_ARTIFACT_PASSPHRASE: ${{ secrets.TFPLAN_ARTIFACT_PASSPHRASE }}
 
       - name: Join netbird mesh
         run: |
@@ -251,4 +277,4 @@ jobs:
 
       - name: Cleanup tfvars
         if: always()
-        run: rm -f ci.auto.tfvars
+        run: rm -f ci.auto.tfvars tfplan.binary
