@@ -175,27 +175,26 @@ jobs:
       - name: Show plan summary
         run: |
           tofu show -no-color tfplan.binary > plan_output.txt
+          # Repo is public — plan job summaries are world-readable. Don't dump
+          # full plan body (reveals infra topology); just the change tally.
           echo "### OpenTofu Plan Result (PR)" >> $GITHUB_STEP_SUMMARY
-          echo "<details><summary>Show Plan</summary>" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo '```terraform' >> $GITHUB_STEP_SUMMARY
-          tail -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          grep -E '^(Plan:|No changes)' plan_output.txt >> $GITHUB_STEP_SUMMARY || true
 
       - name: Post plan to PR
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Repo is public — PR comments are world-readable. Post only the
+          # change tally, not the full plan body (avoids leaking infra
+          # topology/resource attrs to anyone who can view the PR).
           {
             echo "## OpenTofu Plan Result"
-            echo "<details><summary>Show Plan</summary>"
             echo ""
-            echo '```terraform'
-            tail -c 60000 plan_output.txt
-            echo '```'
-            echo "</details>"
+            grep -E '^(Plan:|No changes)' plan_output.txt || true
+            echo ""
+            echo "Full plan is available in the job's step summary for this run."
           } > plan_comment.md
           jq -Rs '{body: .}' plan_comment.md > plan_comment.json
           curl -sS -X POST \

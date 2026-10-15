@@ -14,6 +14,10 @@ on:
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/tofu-ci
 
+# Restrictive top-level default; the build job widens to packages:write below.
+permissions:
+  contents: read
+
 # Only one build/publish at a time; a queued push wins over an in-flight one.
 concurrency:
   group: build-tofu-ci-image

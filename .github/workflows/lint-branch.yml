@@ -3,13 +3,23 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+# This job only reads github.head_ref and never calls the GitHub API, so it
+# needs zero GITHUB_TOKEN scopes. Pin explicitly instead of inheriting
+# whatever broad default perms the repo/org has configured.
+permissions: {}
+
 jobs:
   lint-branch:
     runs-on: ubuntu-latest
     steps:
       - name: Check branch name convention
+        env:
+          # Pass through env var rather than interpolating github.head_ref
+          # directly into the shell — head_ref is attacker-controlled on a
+          # PR (it's the source branch name) and inline interpolation is a
+          # script-injection vector.
+          BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
           echo "Branch: $BRANCH_NAME"
           # Regular users might create PRs, maybe we only enforce on agent/* branches?
           # Actually, let's enforce if the author is an agent, or we can just enforce generally
