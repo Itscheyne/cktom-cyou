@@ -70,10 +70,16 @@ EXPECTED_BRIDGES = {
 
 
 def load_state_from_str(text):
-    """Parse `tofu show -json` output string. Handles plan and state formats."""
+    """Parse `tofu show -json` output string. Handles plan and state formats.
+
+    State format (tofu show -json <state file / live state>):
+        {"values": {"root_module": ...}}
+    Plan format (tofu show -json <plan file>, e.g. tfplan.binary):
+        {"planned_values": {"root_module": ...}}
+    """
     data = json.loads(text)
-    # Both plan and state share: {"values": {"root_module": ...}}
-    root = data.get("values", {}).get("root_module", {})
+    root_container = data.get("planned_values") or data.get("values") or {}
+    root = root_container.get("root_module", {})
     return root
 
 
