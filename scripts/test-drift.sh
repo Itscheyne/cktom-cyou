@@ -32,7 +32,14 @@ if [ "$ALL" = "false" ]; then
     -exclude=proxmox_sdn_vnet.node1 \
     -exclude=proxmox_virtual_environment_sdn_vnet.node1 \
     -exclude=proxmox_sdn_zone_simple.internal \
-    -exclude=proxmox_virtual_environment_sdn_zone_simple.internal"
+    -exclude=proxmox_virtual_environment_sdn_zone_simple.internal \
+    -exclude=talos_machine_secrets.cluster \
+    -exclude=talos_machine_configuration_apply.controlplane \
+    -exclude=talos_machine_configuration_apply.worker \
+    -exclude=talos_machine_bootstrap.this \
+    -exclude=talos_cluster_kubeconfig.cluster \
+    -exclude=kubernetes_namespace_v1.argocd \
+    -exclude=helm_release.argocd"
 fi
 
 # Extra flags from environment (e.g. -exclude=module.node3 if unreachable)

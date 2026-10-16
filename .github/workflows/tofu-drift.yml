@@ -16,10 +16,11 @@ permissions:
   contents: read
   packages: read
 
-# Only one drift check at a time
+# Only one drift check at a time. cancel-in-progress=false so a run waiting
+# for plan-gate approval isn't silently killed by the next scheduled run.
 concurrency:
   group: tofu-drift
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   drift:
