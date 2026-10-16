@@ -1,0 +1,33 @@
+#/etc/containers/systemd/cliproxyapi.container
+[Unit]
+Description=CLIProxyAPI Container Quadlet
+
+[Service]
+Restart=unless-stopped
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
+
+[Container]
+ContainerName=cliproxyapi
+Image=docker.io/eceasy/cli-proxy-api:v7.2.115
+AutoUpdate=registry
+Pull=newer	
+
+
+Network=internal.network
+PublishPort=1455:1455
+PublishPort=54545:54545
+PublishPort=51121:51121
+Volume=cliproxyapi:/CLIProxyAPI
+Volume=/etc/cliproxyapi/config.yaml:/CLIProxyAPI/config.yaml:Z
+Volume=cliproxy-api_auth:/root/.cli-proxy-api
+
+#Add labels for traefik
+Label="traefik.enable=true"
+Label="traefik.http.routers.cliproxyapi-router.entrypoints=port443"
+Label="traefik.http.routers.cliproxyapi-router.rule=Host(`cliproxyapi.prod.sf.cktom.cyou`)"
+Label="traefik.http.routers.cliproxyapi-router.tls=true"
+Label="traefik.http.routers.cliproxyapi-router.service=cliproxyapi-service"
+Label="traefik.http.services.cliproxyapi-service.loadbalancer.server.port=8317"

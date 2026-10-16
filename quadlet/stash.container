@@ -3,7 +3,7 @@
 Description=Stash Container Quadlet
 
 [Service]
-Restart=on-abnormal
+Restart=unless-stopped
 TimeoutStartSec=900
 
 [Install]
@@ -21,8 +21,8 @@ Network=internal.network
 Volume=/mnt/stash-data:/data:Z
 Volume=/mnt/prod3/stash/blobs:/blobs:Z
 Volume=/mnt/prod3/stash/config:/root/.stash:Z
-Volume=/mnt/prod3/stash/metadata:/metadata:Z
-Volume=/mnt/prod3/stash/cache:/cache:Z
+Volume=stash-metadata:/metadata
+Volume=stash-cache:/cache:Z
 Volume=/mnt/prod3/stash/generated:/generated:Z
 
 Environment=STASH_STASH=/data/
@@ -30,14 +30,15 @@ Environment=STASH_GENERATED=/generated/
 Environment=STASH_METADATA=/metadata/
 Environment=STASH_CACHE=/cache/
 Environment=STASH_PORT=9999
-
+Memory=4G
 
 #Add labels for traefik
 Label="traefik.enable=true"
-Label="traefik.http.routers.stash-router.entrypoints=entryPoint443"
-Label="traefik.http.routers.stash-router.rule=Host(`stash.prod3.cktom.cyou`)"
+Label="traefik.http.routers.stash-router.entrypoints=port443"
+Label="traefik.http.routers.stash-router.rule=Host(`stash.prod.sf.cktom.cyou`)||Host(`stash.prod3.cktom.cyou`)"
 Label="traefik.http.routers.stash-router.tls=true"
 Label="traefik.http.routers.stash-router.service=stash-service"
 Label="traefik.http.services.stash-service.loadbalancer.server.port=9999"
-
-Pod=services.pod
+Secret=STASH_API_KEY,type=env,target=STASH_API_KEY
+#Health check by querying graphql
+#HealthCmd=CMD-SHELL curl -X POST -H "ApiKey: ${STASH_API_KEY}" -H "Content-Type: application/json" --data '{ "query": "query MyQuery {systemStatus {status}}" }' stash:9999/graphql

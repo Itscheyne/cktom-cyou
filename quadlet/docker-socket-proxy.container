@@ -1,3 +1,8 @@
+#!/etc/containers/systemd/docker-socket-proxy.container
+
+
+#!/etc/containers/systemd/docker-socket-proxy.container
+
 [Unit]
 Description=Docker socket proxy container
 
@@ -14,7 +19,7 @@ Image=ghcr.io/tecnativa/docker-socket-proxy:latest
 AutoUpdate=registry
 Pull=newer	
 Network=internal.network
-#PublishPort=2375:2375    
+PublishPort=127.0.0.1:2375:2375    
 Volume=/var/run/podman/podman.sock:/var/run/docker.sock:ro
 SecurityLabelDisable=true
 Environment=DOCKER_SOCKET=unix:///var/run/docker.sock
@@ -22,4 +27,3 @@ Environment=CONTAINERS=1
 Environment=IMAGES=1
 Environment=INFO=1
 Environment=NETWORKS=1
-Pod=services.pod

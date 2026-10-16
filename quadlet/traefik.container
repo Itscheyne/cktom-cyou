@@ -1,4 +1,4 @@
-#/home/prodmin/.config/containers/systemd/traefik.container
+#/etc/containers/systemd/traefik.container
 #Traefik service managed by Podman and Systemd Quadlet
 #
 [Unit]
@@ -56,7 +56,7 @@ NoNewPrivileges=true
 Volume=/etc/traefik/traefik.yml:/etc/traefik/traefik.yml:Z,ro
 Volume=/etc/traefik/dynamic:/etc/traefik/dynamic:Z,ro
 Volume=/etc/traefik/data:/etc/traefik/data:Z
-
+Volume=/var/log/traefik:/var/log/traefik:Z
 # Add SELinux label
 SecurityLabelType=container_runtime_t
 
@@ -73,12 +73,13 @@ Environment=LEGO_EXPERIMENTAL_CNAME_SUPPORT=true
 Label=traefik.enable=true
 Label=traefik.http.middlewares.prod3Auth.basicAuth.users=traefikmin:$apr1$srhZYlNC$oXcGO1W/QQlfyfew7OVF61
 Label=traefik.http.middlewares.prod3Auth.basicAuth.removeheader=true
-Label=traefik.http.routers.prod3-cktom-cyou.rule=Host(`prod3.cktom.cyou`)
-Label=traefik.http.routers.prod3-cktom-cyou.tls.certresolver=cloudflareResolver
-Label=traefik.http.routers.prod3-cktom-cyou.tls.domains[0].main=*.prod3.cktom.cyou
-Label=traefik.http.routers.prod3-cktom-cyou.tls.domains[0].sans=prod3.cktom.cyou
-Label=traefik.http.routers.prod3-cktom-cyou.service=api@internal
-Label=traefik.http.routers.prod3-cktom-cyou.middlewares=prod3Auth
+Label=traefik.http.routers.traefik.rule=Host(`traefik.prod.sf.cktom.cyou`)
+Label=traefik.http.routers.traefik.tls.certresolver=cloudflareResolver
+Label=traefik.http.routers.traefik.tls.domains[0].main=prod.sf.cktom.cyou
+Label=traefik.http.routers.traefik.tls.domains[0].sans=*.prod.sf.cktom.cyou
+Label=traefik.http.routers.traefik.service=api@internal
+Label=traefik.http.routers.traefik.middlewares=prod3Auth
+
 ## Transitioning from traefik.yml to using env variables to make it easier to IaC this.
 ## Setup logging and metrics
 #Environment=TRAEFIK_LOG_LEVEL=DEBUG
@@ -120,4 +121,3 @@ Label=traefik.http.routers.prod3-cktom-cyou.middlewares=prod3Auth
 #Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROPAGATION_DISABLECHECKS=true
 #Environment=TRAEFIK_CERTIFICATESRESOLVERS_CLOUDFLARE_ACME_DNSCHALLENGE_PROPAGATION_DELAYBEFORECHECKS=90
 
-Pod=services.pod

@@ -1,0 +1,34 @@
+# /etc/containers/systemd/template.container
+# This is a complete template for a Podman Quadlet Container file (. container).
+
+[Unit]
+Description=PostgreSQL Database for Odoo
+After=network-online.target
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target default.target
+RequiredBy=odoo-web-application.service
+
+
+[Container]
+ContainerName=odoo-db
+Environment=POSTGRES_USER=odoo
+Environment=POSTGRES_DB=postgres
+Image=docker.io/library/postgres:16
+
+# [Container] section option Label.
+# .PP Add an image label\fP (e.g. label=value\fP) to the image metadata. Can
+# be used multiple times. .PP This is equivalent to the --label option of
+# podman build.
+# Label=
+
+Network=internal.network
+
+Secret=odoo_db_password,type=env,target=POSTGRES_PASSWORD
+
+Volume=odoo-db-data:/var/lib/postgresql/data:Z
+

@@ -1,0 +1,34 @@
+# searxng.container 
+[Unit]
+Description=searX-NG container
+Requires=searxng-valkey.service
+
+[Install]
+WantedBy=default.target
+
+[Service]
+Restart=on-abnormal
+TimeoutStartSec=600
+
+[Container]
+ContainerName=searxng
+Image=docker.io/searxng/searxng:latest
+Volume=searxng-config:/etc/searxng/:Z
+Volume=searxng-core-data:/var/cache/searxng/
+
+Network=internal.network
+
+Label=traefik.enable=true
+Label=traefik.http.routers.searxng.entrypoints=port443
+Label=traefik.http.routers.searxng.rule=Host(`searxng.prod.sf.cktom.cyou`)
+Label=traefik.http.routers.searxng.tls=true
+Label=traefik.http.routers.searxng.service=searxng
+Label=traefik.http.services.searxng.loadbalancer.server.port=8080
+
+# Workaround for Omniroute
+# Attach a middleware to modify the request headers
+#Label=traefik.http.routers.searxng.middlewares=strip-auth-header
+      
+# Middleware definition: Custom Request Headers (setting Authorization to empty strips it)
+#Label=traefik.http.middlewares.strip-auth-header.headers.customrequestheaders.Authorization=
+

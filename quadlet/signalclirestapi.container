@@ -1,0 +1,28 @@
+#/etc/containers/systemd/signalclirestapi.container
+[Unit]
+Description=Signal CLI REST API Container Quadlet
+
+[Service]
+Restart=unless-stopped
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target
+
+[Container]
+ContainerName=signalclirestapi
+Image=docker.io/bbernhard/signal-cli-rest-api
+AutoUpdate=registry
+Pull=newer	
+
+
+Network=internal.network
+Volume=signalclirestapi:/home/.local/share/signal-cli
+Environment="MODE=JSON-RPC-NATIVE"
+#Add labels for traefik
+Label="traefik.enable=true"
+Label="traefik.http.routers.signalclirestapi-router.entrypoints=port443"
+Label="traefik.http.routers.signalclirestapi-router.rule=Host(`signalclirestapi.prod.sf.cktom.cyou`)"
+Label="traefik.http.routers.signalclirestapi-router.tls=true"
+Label="traefik.http.routers.signalclirestapi-router.service=signalclirestapi-service"
+Label="traefik.http.services.signalclirestapi-service.loadbalancer.server.port=8080"

@@ -1,0 +1,39 @@
+# /etc/containers/systemd/template.container
+# This is a complete template for a Podman Quadlet Container file (. container).
+# It contains EVERY SINGLE supported option listed in the man page, commented out.
+# Customize by uncommenting and editing the settings you need.
+
+[Unit]
+Description=Odoo Web Application
+
+After=odoo-db.service
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
+
+[Container]
+ContainerName=odoo
+
+Environment=HOST=odoo
+Environment=PORT=5432
+Environment=USER=odoo
+Image=docker.io/library/odoo:18
+
+Label=traefik.enable=true
+Label=traefik.http.routers.odoo.rule=Host(`odoo.prod.sf.cktom.cyou`)
+Label=traefik.http.routers.odoo.entrypoints=port443
+Label=traefik.http.routers.odoo.tls=true
+Label=traefik.http.routers.odoo.tls.domains[0].main=prod.sf.cktom.cyou
+Label=traefik.http.routers.odoo.tls.domains[0].sans=*.prod.sf.cktom.cyou
+Label=traefik.http.routers.odoo.service=odoo
+Label=traefik.http.services.odoo.loadbalancer.server.port=8069
+
+Network=internal.network
+
+Secret=odoo_db_password,type=env,target=PASSWORD
+
+Volume=odoo-data:/var/lib/odoo:Z
+
