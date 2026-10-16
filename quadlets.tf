@@ -54,6 +54,10 @@ resource "null_resource" "prod3_quadlets" {
 }
 
 resource "null_resource" "openviking_config" {
+  # Re-runs whenever ov.conf content changes; also restarts the container so
+  # the new config is picked up without waiting for the next quadlet redeploy.
+  depends_on = [null_resource.prod3_quadlets]
+
   triggers = {
     content = filesha256("${path.module}/quadlet/ov.conf")
   }
@@ -79,7 +83,9 @@ resource "null_resource" "openviking_config" {
 
   provisioner "remote-exec" {
     inline = [
-      "sudo mv /tmp/ov.conf /var/opt/openviking/data/ov.conf"
+      "sudo mv /tmp/ov.conf /var/opt/openviking/data/ov.conf",
+      "export XDG_RUNTIME_DIR=/run/user/$(id -u)",
+      "systemctl --user restart openviking.service || true"
     ]
   }
 }
